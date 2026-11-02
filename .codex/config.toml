@@ -1,0 +1,10 @@
+# Codex Agent Configuration
+instructions_file = "AGENTS.md"
+
+[agents.sdd-worker]
+description = "Implementer worker for Subagent-Driven Development (SDD)"
+tools = ["Read", "Edit", "Write", "Bash"]
+
+[agents.sdd-reviewer]
+description = "Independent read-only code and spec reviewer"
+tools = ["Read", "Bash"]

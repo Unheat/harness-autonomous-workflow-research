@@ -1,0 +1,6 @@
+name: sdd-reviewer
+description: "Independent read-only code and spec reviewer"
+tools:
+  - read
+  - bash
+shell_timeout: 30

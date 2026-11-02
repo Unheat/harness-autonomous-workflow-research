@@ -1,0 +1,8 @@
+name: sdd-worker
+description: "Implementer worker for Subagent-Driven Development (SDD)"
+tools:
+  - read
+  - edit
+  - write
+  - bash
+shell_timeout: 30
