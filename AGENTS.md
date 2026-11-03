@@ -39,3 +39,36 @@ To prevent context pollution and token waste:
 
 - **Before Planning:** Check `docs/solutions/` for known pitfalls and previous architectural decisions.
 - **After Completion:** When finishing a development branch or solving a non-obvious bug, summarize the root cause, verified fix, and key files in `docs/solutions/<topic>.md`.
+
+---
+
+## 5. Canonical Skill Management & Storage Rules (3-Layer Architecture)
+
+To eliminate skill duplication and broken symlinks:
+
+1. **Storage Layer (Single Source of Truth & Symlinks)**:
+   - **Project-scoped skills**: MUST reside in `.agents/skills/<skill-name>/`.
+   - **Machine-global skills**: MUST reside in `~/.agents/skills/<skill-name>/`.
+   - All harness adapter folders (`.claude/skills`, `.zcode/skills`, `.cursor/skills`) are single symlinks pointing directly to `../.agents/skills`.
+
+2. **Installation Layer (Official Vercel Skills CLI)**:
+   - Always install via the official `skills` CLI using the `-a universal` target (so it writes exclusively to `.agents/skills`):
+     ```bash
+     # Install locally for this project:
+     skills add <package-or-github-url> -a universal
+
+     # Install globally for the entire machine:
+     skills add <package-or-github-url> -g -a universal
+
+     # Remove or update skills cleanly:
+     skills remove <skill-name>
+     skills update
+     ```
+   - For OpenSpec: always initialize using `--tools agents`.
+   - Alternatively, use the local helper `./.agent/scripts/install-skill.sh <url>`.
+
+3. **Enforcement Layer (Hooks & Safety Net)**:
+   - **PreToolUse Guard (`.agent/hooks/guard-skills.py`)**: Blocks any attempt by an agent to write directly into `.claude/skills/` or `.zcode/skills/`, redirecting it to `.agents/skills/`.
+   - **SessionStart Auto-Heal (`.agent/hooks/auto-heal-symlinks.sh`)**: Automatically repairs symlinks at the start of every session if any adapter folder is broken or accidentally overwritten.
+
+
