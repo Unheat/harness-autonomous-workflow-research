@@ -9,7 +9,7 @@ cd "$PROJECT_ROOT"
 mkdir -p .agents/skills .agent/agents
 
 # 2. Check and heal skills symlinks
-for harness in .claude .zcode .cursor; do
+for harness in .claude .zcode .cursor .dsh; do
     mkdir -p "$harness"
     if [ -d "$harness/skills" ] && [ ! -L "$harness/skills" ]; then
         # If it's a real folder, migrate any contents to .agents/skills
@@ -25,7 +25,7 @@ for harness in .claude .zcode .cursor; do
 done
 
 # 3. Check and heal agent symlinks
-for harness in .claude .zcode .codex .opencode; do
+for harness in .claude .zcode .codex .opencode .dsh; do
     mkdir -p "$harness"
     if [ -d "$harness/agents" ] && [ ! -L "$harness/agents" ]; then
         echo "[Auto-Heal] Real folder found at $harness/agents. Migrating to .agent/agents/..."

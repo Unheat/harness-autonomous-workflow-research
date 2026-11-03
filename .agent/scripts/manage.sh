@@ -21,6 +21,14 @@ for h in .claude .zcode .codex .opencode .dsh; do
         echo "⚠️  $h/agents is NOT a symlink or missing"
     fi
 done
+for h in .claude .zcode .cursor .dsh; do
+    if [ -L "$h/skills" ]; then
+        target=$(readlink "$h/skills")
+        echo "✅ $h/skills -> $target"
+    else
+        echo "⚠️  $h/skills is NOT a symlink or missing"
+    fi
+done
 echo ""
 
 echo "--- 3. PROJECT-SCOPED (FOLDER) SKILLS ---"

@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "codebase-memory": {
+      "command": "/Users/dangtruongan/.local/bin/codebase-memory-mcp"
+    },
+    "hound": {
+      "command": "/opt/anaconda3/bin/hound"
+    },
+    "gitmcp": {
+      "command": "/Users/dangtruongan/.local/bin/gitmcp"
+    },
+    "rea": {
+      "command": "/Users/dangtruongan/.nvm/versions/node/v22.23.4/bin/rea",
+      "args": ["mcp"],
+      "env": {
+        "REA_MCP_INPUT_SCHEMA_PROFILE": "compact",
+        "REA_MCP_OUTPUT_SCHEMA_PROFILE": "off"
+      }
+    }
+  }
+}
