@@ -18,15 +18,18 @@ describe('doctor module', () => {
       // 2. Run healWorkspace to reconstruct adapter symlinks
       await healWorkspace(tmpWs);
 
-      // Verify .claude/skills and .zcode/skills symlinks exist
+      // Verify .claude/skills and .cursor/skills symlinks exist, and .zcode/skills is omitted to avoid duplicate prompt injection
       const claudeSkills = path.join(tmpWs, '.claude', 'skills');
+      const cursorSkills = path.join(tmpWs, '.cursor', 'skills');
       const zcodeSkills = path.join(tmpWs, '.zcode', 'skills');
 
       const statClaude = await fsp.lstat(claudeSkills);
-      const statZcode = await fsp.lstat(zcodeSkills);
+      const statCursor = await fsp.lstat(cursorSkills);
+      const statZcode = await fsp.lstat(zcodeSkills).catch(() => null);
 
       expect(statClaude.isSymbolicLink()).toBe(true);
-      expect(statZcode.isSymbolicLink()).toBe(true);
+      expect(statCursor.isSymbolicLink()).toBe(true);
+      expect(statZcode).toBeNull();
 
       const targetClaude = await fsp.readlink(claudeSkills);
       expect(targetClaude).toBe('../.agents/skills');

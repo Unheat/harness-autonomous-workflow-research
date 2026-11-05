@@ -5,6 +5,7 @@ import { GLOBAL_ZCODE_CONFIG } from './config';
 import { ensureWorkspaceDirs } from './workspace';
 import { autoTrustWorkspaceMcps } from './mcp-global';
 import { getCatalogSkills } from './catalog';
+import { listGlobalActiveSkills } from './skills-global';
 import { retargetWorkspaceSkillSymlinks, cleanGlobal } from './clean-global';
 import type { AuditResult, AuditIssue, CleanGlobalResult } from './types';
 
@@ -17,7 +18,6 @@ export interface AdapterSymlinkDef {
 
 export const ADAPTER_SYMLINKS: AdapterSymlinkDef[] = [
   { link: '.claude/skills', target: '../.agents/skills' },
-  { link: '.zcode/skills', target: '../.agents/skills' },
   { link: '.cursor/skills', target: '../.agents/skills' },
   { link: '.dsh/skills', target: '../.agents/skills' },
   { link: '.claude/agents', target: '../.agent/agents' },
@@ -65,8 +65,11 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     }
   }
 
-  // 2. Audit dangling skills in .agents/skills
+  // 2. Audit dangling and redundant skills in .agents/skills
   const skillsDir = path.join(root, '.agents', 'skills');
+  const globalActive = await listGlobalActiveSkills();
+  const globalNames = new Set(globalActive.map(g => g.name));
+
   if (fs.existsSync(skillsDir)) {
     try {
       const entries = await fsp.readdir(skillsDir, { withFileTypes: true });
@@ -75,6 +78,11 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
           const p = path.join(skillsDir, entry.name);
           if (!fs.existsSync(p)) {
             issues.push({ severity: 'error', message: `Dangling skill symlink in .agents/skills/${entry.name}` });
+          } else if (globalNames.has(entry.name)) {
+            issues.push({
+              severity: 'warning',
+              message: `Skill "${entry.name}" is active in both Global User Scope and Workspace Scope. Run \`harness heal\` to prune redundant local link.`
+            });
           }
         }
       }
@@ -167,7 +175,23 @@ export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
     } catch {}
   }
 
-  // Prune broken skill symlinks in .agents/skills
+  // Prune redundant .zcode/skills symlink if present (ZCode natively scans .agents/skills)
+  const zcodeSkills = path.join(root, '.zcode', 'skills');
+  const zStat = await fsp.lstat(zcodeSkills).catch(() => null);
+  if (zStat?.isSymbolicLink()) {
+    await fsp.unlink(zcodeSkills).catch(() => {});
+    actions.push('Pruned redundant .zcode/skills adapter (ZCode natively scans .agents/skills)');
+  }
+
+  // Re-target legacy links pointing to ~/.agents/skills/ to ~/.agents/catalog/skills/ first
+  const retargetActions = await retargetWorkspaceSkillSymlinks(root);
+  actions.push(...retargetActions);
+
+  // De-duplicate: Prune local skill symlinks if the skill is already active globally in User Scope
+  const globalSkills = await listGlobalActiveSkills();
+  const globalActiveNames = new Set(globalSkills.map(g => g.name));
+
+  // Prune broken or redundant skill symlinks in .agents/skills
   const skillsDir = path.join(root, '.agents', 'skills');
   if (fs.existsSync(skillsDir)) {
     try {
@@ -178,15 +202,14 @@ export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
           if (!fs.existsSync(p)) {
             await fsp.unlink(p).catch(() => {});
             actions.push(`Pruned dead skill link: ${entry.name}`);
+          } else if (globalActiveNames.has(entry.name)) {
+            await fsp.unlink(p).catch(() => {});
+            actions.push(`Pruned redundant local symlink "${entry.name}" (already active globally in User Scope)`);
           }
         }
       }
     } catch {}
   }
-
-  // Re-target legacy links pointing to ~/.agents/skills/ to ~/.agents/catalog/skills/
-  const retargetActions = await retargetWorkspaceSkillSymlinks(root);
-  actions.push(...retargetActions);
 
   // Auto-sync catalog (ingests any rogue/manual skills)
   const catSkills = await getCatalogSkills();

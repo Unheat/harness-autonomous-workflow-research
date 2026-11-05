@@ -63,16 +63,34 @@ describe('Catalog Isolation, Continuous Discovery & Self-Healing', () => {
     const existsAfter = await fsp.lstat(brokenLink).catch(() => null);
     expect(existsAfter).toBeNull();
 
-    // 4. Verify all adapter symlinks were created
-    const zcodeSkills = path.join(tempWs, '.zcode', 'skills');
+    // 4. Verify cross-harness adapter symlinks are reconciled
     const claudeSkills = path.join(tempWs, '.claude', 'skills');
     const dshSkills = path.join(tempWs, '.dsh', 'skills');
     const cursorSkills = path.join(tempWs, '.cursor', 'skills');
+    const zcodeSkills = path.join(tempWs, '.zcode', 'skills');
 
-    expect((await fsp.lstat(zcodeSkills)).isSymbolicLink()).toBe(true);
     expect((await fsp.lstat(claudeSkills)).isSymbolicLink()).toBe(true);
     expect((await fsp.lstat(dshSkills)).isSymbolicLink()).toBe(true);
     expect((await fsp.lstat(cursorSkills)).isSymbolicLink()).toBe(true);
+    expect(await fsp.lstat(zcodeSkills).catch(() => null)).toBeNull(); // ZCode reads .agents/skills natively
+  });
+
+  test('healWorkspace: prunes redundant local symlink when skill is promoted to Global', async () => {
+    // 1. Setup local symlink for harness-protocol (which is active in ~/.zcode/skills)
+    const skillsDir = path.join(tempWs, '.agents', 'skills');
+    await fsp.mkdir(skillsDir, { recursive: true });
+
+    const targetDir = path.join(os.homedir(), '.agents', 'catalog', 'skills', 'harness-protocol');
+    const localLink = path.join(skillsDir, 'harness-protocol');
+    await fsp.symlink(targetDir, localLink);
+
+    // 2. Run healWorkspace
+    const actions = await healWorkspace(tempWs);
+    expect(actions.some(a => a.includes('harness-protocol') && a.includes('redundant'))).toBe(true);
+
+    // 3. Verify redundant local symlink is pruned
+    const existsAfter = await fsp.lstat(localLink).catch(() => null);
+    expect(existsAfter).toBeNull();
   });
 
   test('global skill lifecycle: enableGlobalSkill and disableGlobalSkill', async () => {
