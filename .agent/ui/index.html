@@ -372,6 +372,7 @@
 
     let skillSearchIndex = null;
     let mcpSearchIndex = null;
+    let lastDataString = "";
 
     function buildSearchIndexes() {
       if (typeof MiniSearch === 'undefined') return;
@@ -385,12 +386,17 @@
           fuzzy: 0.2
         }
       });
-      const skillDocs = state.skills.map(s => ({
-        id: s.name,
-        name: s.name,
-        description: s.description || ""
-      }));
-      skillSearchIndex.addAll(skillDocs);
+      const skillDocsMap = new Map();
+      state.skills.forEach(s => {
+        if (!skillDocsMap.has(s.name)) {
+          skillDocsMap.set(s.name, {
+            id: s.name,
+            name: s.name,
+            description: s.description || ""
+          });
+        }
+      });
+      skillSearchIndex.addAll(Array.from(skillDocsMap.values()));
 
       mcpSearchIndex = new MiniSearch({
         fields: ['name', 'description', 'command'],
@@ -401,13 +407,18 @@
           fuzzy: 0.2
         }
       });
-      const mcpDocs = state.mcps.map(m => ({
-        id: m.name,
-        name: m.name,
-        description: m.description || "",
-        command: m.command || ""
-      }));
-      mcpSearchIndex.addAll(mcpDocs);
+      const mcpDocsMap = new Map();
+      state.mcps.forEach(m => {
+        if (!mcpDocsMap.has(m.name)) {
+          mcpDocsMap.set(m.name, {
+            id: m.name,
+            name: m.name,
+            description: m.description || "",
+            command: m.command || ""
+          });
+        }
+      });
+      mcpSearchIndex.addAll(Array.from(mcpDocsMap.values()));
     }
 
     async function loadStatus() {
@@ -415,6 +426,10 @@
         const res = await fetch("/api/status");
         const data = await res.json();
         
+        const rawDataStr = JSON.stringify(data);
+        if (rawDataStr === lastDataString) return;
+        lastDataString = rawDataStr;
+
         document.getElementById("ws-name").innerText = data.workspace.name;
         document.getElementById("ws-path").innerText = `(${data.workspace.path})`;
         
@@ -425,40 +440,24 @@
         document.getElementById("val-cat-skills").innerText = data.metrics.total_catalog_skills;
         document.getElementById("val-cat-mcps").innerText = data.metrics.total_catalog_mcps;
 
-        // Build combined skill list: Active first, then inactive catalog, then local dormant
-        const activeMap = new Map();
-        data.skills.active.forEach(s => activeMap.set(s.name, s));
-
-        state.skills = data.skills.catalog.map(c => {
-          const activeItem = activeMap.get(c.name);
-          return {
-            name: c.name,
-            active: !!activeItem,
-            is_link: activeItem ? activeItem.is_link : true,
-            is_local: false,
-            description: c.description || (activeItem ? activeItem.description : "") || ""
-          };
-        });
-
-        // Add local-only active skills
-        data.skills.active.forEach(s => {
-          if (!state.skills.some(x => x.name === s.name)) {
-            state.skills.unshift({ name: s.name, active: true, is_link: s.is_link, is_local: !s.is_link, description: s.description || "" });
-          }
-        });
-
-        // Add local-only dormant skills
-        (data.skills.dormant || []).forEach(d => {
-          if (!state.skills.some(x => x.name === d.name)) {
-            state.skills.push({ name: d.name, active: false, is_link: false, is_local: true, is_dormant: true, description: d.description || "" });
-          }
-        });
+        // Build skills list from effective runtime resolution
+        state.skills = (data.skills.effective || []).map(s => ({
+          name: s.name,
+          scope: s.scope, // 'global' | 'project' | 'catalog'
+          effectiveActive: s.effectiveActive,
+          isProjectActive: s.isProjectActive,
+          isGlobalActive: s.isGlobalActive,
+          isDormant: s.isDormant,
+          isLink: s.isLink,
+          description: s.description || ""
+        }));
 
         // Build MCP list from effective runtime resolution
         state.mcps = (data.mcps.effective || []).map(eff => {
           return {
             name: eff.name,
             effectiveActive: eff.effectiveActive,
+            workspaceActive: eff.workspaceState === 'active',
             globalState: eff.globalState,
             workspaceState: eff.workspaceState,
             isShadowed: eff.isShadowed,
@@ -484,7 +483,16 @@
       let filtered = [];
       if (!q) {
         filtered = [...state.skills];
-        filtered.sort((a, b) => (b.active === a.active) ? a.name.localeCompare(b.name) : (b.active ? 1 : -1));
+        filtered.sort((a, b) => {
+          if (a.effectiveActive !== b.effectiveActive) return a.effectiveActive ? -1 : 1;
+          if (a.scope !== b.scope) {
+            if (a.scope === 'global') return -1;
+            if (b.scope === 'global') return 1;
+            if (a.scope === 'project') return -1;
+            if (b.scope === 'project') return 1;
+          }
+          return a.name.localeCompare(b.name);
+        });
       } else if (skillSearchIndex) {
         const results = skillSearchIndex.search(q);
         const resultMap = new Map(results.map(r => [r.id, r.score]));
@@ -505,25 +513,30 @@
       filtered.forEach(s => {
         const li = document.createElement("li");
         li.className = "item-row";
-        let badge = "";
-        let meta = s.description || (s.active ? "Injected into project context" : "Dormant in global catalog (0 tokens)");
 
-        if (s.active) {
-          badge = s.is_link ? `<span class="badge badge-linked">Linked</span>` : `<span class="badge badge-local">Local</span>`;
-        } else if (s.is_dormant) {
-          badge = `<span class="badge badge-catalog">Local (Dormant)</span>`;
-          meta = s.description || "Dormant in project (0 tokens injected)";
+        let scopeBadge = "";
+        let meta = s.description || "";
+
+        if (s.scope === "global") {
+          scopeBadge = `<span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc;">Global</span>`;
+          if (!meta) meta = "Active globally across all projects";
+        } else if (s.scope === "project") {
+          scopeBadge = `<span class="badge badge-local">Project</span>`;
+          if (!meta) meta = "Active in this project";
         } else {
-          badge = `<span class="badge badge-catalog">Catalog</span>`;
+          scopeBadge = `<span class="badge badge-catalog">Catalog</span>`;
+          if (!meta) meta = "Available in catalog (0 tokens)";
         }
+
+        const activeBadge = s.effectiveActive ? `<span class="badge badge-linked">Active</span>` : ``;
 
         li.innerHTML = `
           <div class="item-info">
-            <div class="item-name">${s.name} ${badge}</div>
+            <div class="item-name">${s.name} ${scopeBadge} ${activeBadge}</div>
             <div class="item-meta">${meta}</div>
           </div>
           <label class="switch">
-            <input type="checkbox" ${s.active ? "checked" : ""} onchange="toggleSkill('${s.name}', this.checked)">
+            <input type="checkbox" ${s.effectiveActive ? "checked" : ""} onchange="toggleSkill('${s.name}', this.checked, '${s.scope}')">
             <span class="slider"></span>
           </label>
         `;
@@ -564,48 +577,35 @@
       filtered.forEach(m => {
         const li = document.createElement("li");
         li.className = "item-row";
-        let badges = [];
-        let meta = m.description || m.command || "Local MCP server";
+        const scopeBadge = m.globalState === 'active'
+          ? `<span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc;">Global</span>`
+          : `<span class="badge badge-local">Project</span>`;
+        
+        let statusBadge = '';
+        let meta = m.description || m.command || "MCP server";
 
         if (m.isShadowed) {
-          badges.push(`<span class="badge" style="background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">⚠️ BLOCKED</span>`);
+          statusBadge = `<span class="badge" style="background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">Blocked by Global</span>`;
           meta = `<span style="color: #ef4444; font-weight: 500;">${m.shadowReason}</span>`;
         } else if (m.effectiveActive) {
-          badges.push(`<span class="badge badge-linked">Active</span>`);
-          if (m.globalState === 'active') {
-            badges.push(`<span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc;">Global</span>`);
-          } else {
-            badges.push(`<span class="badge badge-local">Workspace</span>`);
-          }
-        } else {
-          badges.push(`<span class="badge badge-catalog">Dormant</span>`);
-          if (m.globalState === 'dormant') {
-            badges.push(`<span class="badge" style="background: rgba(100,116,139,0.2); color: #94a3b8;">Global OFF</span>`);
-          }
+          statusBadge = `<span class="badge badge-linked">Active</span>`;
         }
-
-        const unshadowBtn = m.isShadowed
-          ? `<button class="btn" style="padding: 3px 8px; font-size: 0.7rem; margin-right: 8px; border-color: #ef4444; color: #ef4444;" onclick="unshadowMcp('${m.name}')">Unshadow</button>`
-          : '';
 
         li.innerHTML = `
           <div class="item-info">
-            <div class="item-name">${m.name} ${badges.join(" ")}</div>
+            <div class="item-name">${m.name} ${scopeBadge} ${statusBadge}</div>
             <div class="item-meta">${meta}</div>
           </div>
-          <div style="display: flex; align-items: center;">
-            ${unshadowBtn}
-            <label class="switch">
-              <input type="checkbox" ${m.effectiveActive ? "checked" : ""} onchange="toggleMcp('${m.name}', this.checked)">
-              <span class="slider"></span>
-            </label>
-          </div>
+          <label class="switch">
+            <input type="checkbox" ${m.workspaceActive ? "checked" : ""} onchange="toggleMcp('${m.name}', this.checked)">
+            <span class="slider"></span>
+          </label>
         `;
         list.appendChild(li);
       });
     }
 
-    async function unshadowMcp(name) {
+    async function unblockMcp(name) {
       try {
         const res = await fetch("/api/mcp/toggle", {
           method: "POST",
@@ -613,22 +613,23 @@
           body: JSON.stringify({ name, scope: 'unshadow' })
         });
         const result = await res.json();
-        showToast(result.message || `Unshadowed ${name}`);
+        showToast(result.message || `Unblocked ${name}`);
         await loadStatus();
       } catch (err) {
-        showToast("Error unshadowing MCP");
+        showToast("Error unblocking MCP");
       }
     }
 
     function filterSkills() { renderSkills(); }
     function filterMcps() { renderMcps(); }
 
-    async function toggleSkill(name, enable) {
+    async function toggleSkill(name, enable, scope) {
       try {
+        lastDataString = "";
         const res = await fetch("/api/skill/toggle", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, enable })
+          body: JSON.stringify({ name, enable, scope })
         });
         const result = await res.json();
         if (result.success) {
@@ -644,6 +645,7 @@
 
     async function toggleMcp(name, enable) {
       try {
+        lastDataString = "";
         const res = await fetch("/api/mcp/toggle", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -660,16 +662,6 @@
         showToast("Error toggling MCP");
       }
     }
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, enable })
-        });
-        showToast(enable ? `Enabled MCP: ${name}` : `Disabled MCP: ${name}`);
-        await loadStatus();
-      } catch (err) {
-        showToast("Error toggling MCP");
-      }
-    }
 
     async function healSymlinks() {
       try {
@@ -681,7 +673,11 @@
       }
     }
 
-    window.onload = loadStatus;
+    window.onload = () => {
+      loadStatus();
+      // Auto-sync status every 2 seconds with ZCode and .mcp.json
+      setInterval(loadStatus, 2000);
+    };
   </script>
 </body>
 </html>

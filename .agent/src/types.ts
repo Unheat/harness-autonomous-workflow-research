@@ -62,11 +62,25 @@ export interface AuditResult {
   issues: AuditIssue[];
 }
 
+export type SkillScope = 'global' | 'project' | 'catalog';
+
+export interface EffectiveSkillInfo {
+  name: string;
+  scope: SkillScope;
+  effectiveActive: boolean;
+  isProjectActive: boolean;
+  isGlobalActive: boolean;
+  isDormant: boolean;
+  isLink: boolean;
+  description: string;
+}
+
 export type McpScopeState = 'active' | 'dormant' | 'not_configured';
 
 export interface EffectiveMcpInfo {
   name: string;
   effectiveActive: boolean;
+  workspaceActive?: boolean;
   globalState: McpScopeState;
   workspaceState: McpScopeState;
   isShadowed: boolean;

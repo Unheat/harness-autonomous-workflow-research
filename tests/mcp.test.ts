@@ -22,10 +22,10 @@ describe('mcp module', () => {
       expect('codebase-memory' in afterEn).toBe(true);
       expect(afterEn['codebase-memory'].enabled).toBe(true);
 
-      // Verify .agents/mcp.json symlink was created
+      // Verify .agents/mcp.json exists and is synchronized in lockstep
       const agentMcp = path.join(tmpWs, '.agents', 'mcp.json');
       const lstat = await fsp.lstat(agentMcp);
-      expect(lstat.isSymbolicLink()).toBe(true);
+      expect(lstat.isSymbolicLink() || lstat.isFile()).toBe(true);
 
       // 3. Disable the server locally (dormancy)
       const disRes = await disableMcp(tmpWs, 'codebase-memory');

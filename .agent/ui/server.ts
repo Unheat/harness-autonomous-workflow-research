@@ -12,8 +12,9 @@ import { exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { findWorkspaceRoot, getWorkspacePaths } from '../src/workspace';
-import { getCatalogSkills, getCatalogMcps, getSkillDescription } from '../src/catalog';
-import { listLocalSkills, addSkill, removeSkill } from '../src/skills';
+import { getCatalogSkills, getCatalogMcps } from '../src/catalog';
+import { addSkill, removeSkill } from '../src/skills';
+import { getEffectiveSkillsList } from '../src/skills-global';
 import { listLocalMcps, enableMcp, disableMcp } from '../src/mcp';
 import { getEffectiveMcpList, listGlobalMcps, enableGlobalMcp, disableGlobalMcp, removeGlobalMcp } from '../src/mcp-global';
 import { healWorkspace } from '../src/doctor';
@@ -61,24 +62,17 @@ export async function createDashboardServer(workspaceRoot: string = process.cwd(
     }
 
     if (req.method === 'GET' && url.pathname === '/api/status') {
-      const allLocalSkills = await listLocalSkills(root);
-      const activeSkills = allLocalSkills.filter(s => !s.isDormant);
-      const dormantSkills = allLocalSkills.filter(s => s.isDormant);
+      const effectiveSkills = await getEffectiveSkillsList(root);
       const effectiveMcps = await getEffectiveMcpList(root);
       const localMcps = await listLocalMcps(root);
       const globalMcps = await listGlobalMcps();
       const catalogSkills = await getCatalogSkills();
       const catalogMcps = await getCatalogMcps();
 
-      const descMap = new Map<string, string>();
-      for (const sName of Array.from(new Set([...allLocalSkills.map(s => s.name), ...catalogSkills]))) {
-        descMap.set(sName, await getSkillDescription(sName, root));
-      }
-
-      const activeSkillsMap = new Map(activeSkills.map(s => [s.name, s.isLink]));
+      const activeSkillsCount = effectiveSkills.filter(s => s.effectiveActive).length;
       const activeMcpCount = effectiveMcps.filter(m => m.effectiveActive).length;
-      const estTokens = (activeSkills.length * TOKENS_PER_SKILL_PREVIEW) + (activeMcpCount * TOKENS_PER_MCP_SCHEMA);
-      const blockedSkills = Math.max(0, catalogSkills.length - activeSkills.length);
+      const estTokens = (activeSkillsCount * TOKENS_PER_SKILL_PREVIEW) + (activeMcpCount * TOKENS_PER_MCP_SCHEMA);
+      const blockedSkills = Math.max(0, catalogSkills.length - activeSkillsCount);
       const savedTokens = blockedSkills * TOKENS_PER_SKILL_PREVIEW;
 
       const payload = {
@@ -86,15 +80,13 @@ export async function createDashboardServer(workspaceRoot: string = process.cwd(
         metrics: {
           injected_tokens: estTokens,
           saved_tokens: savedTokens,
-          active_skills_count: activeSkills.length,
+          active_skills_count: activeSkillsCount,
           active_mcps_count: activeMcpCount,
           total_catalog_skills: catalogSkills.length,
           total_catalog_mcps: Object.keys(catalogMcps).length
         },
         skills: {
-          active: activeSkills.map(s => ({ name: s.name, is_link: s.isLink, description: descMap.get(s.name) || '' })),
-          dormant: dormantSkills.map(s => ({ name: s.name, description: descMap.get(s.name) || '' })),
-          catalog: catalogSkills.map(sName => ({ name: sName, active: activeSkillsMap.has(sName), description: descMap.get(sName) || '' }))
+          effective: effectiveSkills
         },
         mcps: {
           effective: effectiveMcps,
@@ -113,7 +105,15 @@ export async function createDashboardServer(workspaceRoot: string = process.cwd(
       try {
         const body = await parseJsonBody(req);
         if (!body.name) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing name' })); return; }
-        const result = body.enable ? await addSkill(root, body.name) : await removeSkill(root, body.name);
+        let result: any;
+        if (body.scope === 'global' && !body.enable) {
+          result = await removeSkill(root, body.name);
+          if (!result.success) {
+            result = { success: false, message: `"${body.name}" is active globally in user config.` };
+          }
+        } else {
+          result = body.enable ? await addSkill(root, body.name) : await removeSkill(root, body.name);
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (err: any) {

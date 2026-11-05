@@ -132,13 +132,18 @@ async function startRepl(workspaceRoot: string): Promise<void> {
       if (!line) continue;
       const [cmd, ...args] = line.split(/\s+/);
       const keepRunning = await handleCommand(cmd, args, root);
-      if (!keepRunning) break;
+      if (!keepRunning) {
+        rl.close();
+        process.exit(0);
+      }
     } catch {
       console.log('\nExiting...');
-      break;
+      rl.close();
+      process.exit(0);
     }
   }
   rl.close();
+  process.exit(0);
 }
 
 async function main(): Promise<void> {

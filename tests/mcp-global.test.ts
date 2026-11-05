@@ -11,29 +11,37 @@ import { GLOBAL_ZCODE_CONFIG } from '../.agent/src/config';
 describe('MCP Global & Effective Resolution Engine', () => {
   test('shadowing detection: Global dormant overrides Workspace active', async () => {
     const tmpWs = await fsp.mkdtemp(path.join(os.tmpdir(), 'harness-test-eff-'));
+    const testServer = 'test-shadow-server';
 
-    // Local workspace has "rea" active
-    await saveLocalMcps(tmpWs, {
-      rea: { command: 'rea', args: ['mcp'], enabled: true }
-    });
+    // Set up test server as dormant in global config
+    const originalGlobals = await listGlobalMcps();
+    const { saveGlobalMcps } = await import('../.agent/src/mcp-global');
+    try {
+      const globals = { ...originalGlobals, [testServer]: { command: 'test', enabled: false } };
+      await saveGlobalMcps(globals);
 
-    const list = await getEffectiveMcpList(tmpWs);
-    const reaItem = list.find(x => x.name === 'rea');
+      // Local workspace has testServer active
+      await saveLocalMcps(tmpWs, {
+        [testServer]: { command: 'test', enabled: true }
+      });
 
-    expect(reaItem).toBeDefined();
-    // Since rea is currently dormant in global ~/.zcode/cli/config.json:
-    // It should be detected as shadowed and effectiveActive = false!
-    expect(reaItem!.globalState).toBe('dormant');
-    expect(reaItem!.workspaceState).toBe('active');
-    expect(reaItem!.effectiveActive).toBe(false);
-    expect(reaItem!.isShadowed).toBe(true);
+      const list = await getEffectiveMcpList(tmpWs);
+      const item = list.find(x => x.name === testServer);
 
-    // Doctor audit should also report this shadowing error
-    const audit = await auditWorkspace(tmpWs);
-    const shadowIssue = audit.issues.find(i => i.message.includes('blocked by Global ZCode config'));
-    expect(shadowIssue).toBeDefined();
+      expect(item).toBeDefined();
+      expect(item!.globalState).toBe('dormant');
+      expect(item!.workspaceState).toBe('active');
+      expect(item!.effectiveActive).toBe(false);
+      expect(item!.isShadowed).toBe(true);
 
-    await fsp.rm(tmpWs, { recursive: true, force: true });
+      // Doctor audit should also report this shadowing error
+      const audit = await auditWorkspace(tmpWs);
+      const shadowIssue = audit.issues.find(i => i.message.includes('blocked by Global ZCode config'));
+      expect(shadowIssue).toBeDefined();
+    } finally {
+      await saveGlobalMcps(originalGlobals);
+      await fsp.rm(tmpWs, { recursive: true, force: true });
+    }
   });
 
   test('effective resolution: server only in local workspace with no global entry', async () => {

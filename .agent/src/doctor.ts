@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { GLOBAL_ZCODE_CONFIG } from './config';
 import { ensureWorkspaceDirs } from './workspace';
+import { autoTrustWorkspaceMcps } from './mcp-global';
 import type { AuditResult, AuditIssue, CleanGlobalResult } from './types';
 
 export interface AdapterSymlinkDef {
@@ -40,6 +41,9 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
       continue;
     }
     if (!stat.isSymbolicLink()) {
+      if (item.link === '.agents/mcp.json' && stat.isFile()) {
+        continue; // ZCode GUI edits .agents/mcp.json directly in lockstep sync
+      }
       issues.push({ severity: 'error', message: `${item.link} is a physical directory, not a symlink! Causes duplication.` });
       continue;
     }
@@ -79,16 +83,13 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
       const zcfg = JSON.parse(await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8'));
       const zservers = zcfg?.mcp?.servers || {};
       const localMcpFile = path.join(root, '.mcp.json');
-      let localServers: Record<string, any> = {};
-      if (fs.existsSync(localMcpFile)) {
-        localServers = JSON.parse(await fsp.readFile(localMcpFile, 'utf-8'))?.mcpServers || {};
-      }
+      const localServers = fs.existsSync(localMcpFile) ? JSON.parse(await fsp.readFile(localMcpFile, 'utf-8'))?.mcpServers || {} : {};
 
       for (const [name, cfg] of Object.entries(zservers) as [string, any][]) {
         if (cfg.enabled === false && localServers[name] && localServers[name].enabled !== false) {
           issues.push({
             severity: 'error',
-            message: `MCP server "${name}" is enabled locally, but blocked by Global ZCode config! Run \`harness mcp global rm ${name}\` to unshadow.`
+            message: `MCP server "${name}" is enabled locally, but blocked by Global ZCode config! Run \`harness mcp global rm ${name}\` to unblock.`
           });
         }
         if (['rea', 'local-pdf-rag'].includes(name) && cfg.enabled !== false) {
@@ -144,19 +145,14 @@ export async function healWorkspace(workspaceRoot: string): Promise<void> {
       if (stat.isSymbolicLink()) {
         try {
           const currentTarget = await fsp.readlink(fullPath);
-          if (currentTarget === item.target && fs.existsSync(fullPath)) {
-            continue; // Already healthy
-          }
+          if (currentTarget === item.target && fs.existsSync(fullPath)) continue;
           await fsp.unlink(fullPath);
         } catch {
           await fsp.unlink(fullPath).catch(() => {});
         }
       } else if (stat.isDirectory()) {
-        // If empty directory, remove it so we can symlink
         const contents = await fsp.readdir(fullPath).catch(() => []);
-        if (contents.length === 0) {
-          await fsp.rmdir(fullPath).catch(() => {});
-        }
+        if (contents.length === 0) await fsp.rmdir(fullPath).catch(() => {});
       }
     }
 
@@ -164,6 +160,9 @@ export async function healWorkspace(workspaceRoot: string): Promise<void> {
       await fsp.symlink(item.target, fullPath);
     } catch {}
   }
+
+  // Automatically grant trust signatures for all workspace MCP servers in ZCode
+  await autoTrustWorkspaceMcps(root);
 }
 
 /**
@@ -180,9 +179,9 @@ export async function cleanGlobal(): Promise<CleanGlobalResult> {
       zcfg.mcp.servers = zcfg.mcp.servers || {};
 
       for (const heavy of ['rea', 'local-pdf-rag']) {
-        if (heavy in zcfg.mcp.servers) {
-          delete zcfg.mcp.servers[heavy];
-          actions.push(`Removed "${heavy}" from global ZCode config (prevents global shadowing; local projects can now manage it)`);
+        if (zcfg.mcp.servers[heavy] && zcfg.mcp.servers[heavy].enabled !== false) {
+          zcfg.mcp.servers[heavy].enabled = false;
+          actions.push(`Set global server "${heavy}" to inactive (enabled: false) to prevent token bloat across unrelated projects`);
         }
       }
 

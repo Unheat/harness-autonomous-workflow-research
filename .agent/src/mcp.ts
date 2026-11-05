@@ -5,24 +5,45 @@ import { getCatalogMcps } from './catalog';
 import { GLOBAL_CATALOG_DIR, GLOBAL_MCPS_FILE } from './config';
 import type { McpServerConfig, OperationResult } from './types';
 
+function isValidName(name: string): boolean {
+  return !(!name || typeof name !== 'string' || name.includes('..') || name.includes('/') || name.includes('\\'));
+}
+
 /**
  * Reads local .mcp.json servers.
+ * Bi-directional sync: If .agents/mcp.json was edited by ZCode GUI, auto-syncs to .mcp.json.
  */
 export async function listLocalMcps(workspaceRoot: string): Promise<Record<string, McpServerConfig>> {
-  const { mcpFile } = getWorkspacePaths(workspaceRoot);
+  const { mcpFile, agentMcpSymlink } = getWorkspacePaths(workspaceRoot);
+
+  try {
+    const statLocal = fs.existsSync(mcpFile) ? await fsp.stat(mcpFile) : null;
+    const statAgents = fs.existsSync(agentMcpSymlink) ? await fsp.stat(agentMcpSymlink) : null;
+
+    if (statAgents && (!statLocal || statAgents.mtimeMs > statLocal.mtimeMs)) {
+      const raw = await fsp.readFile(agentMcpSymlink, 'utf-8');
+      const data = JSON.parse(raw);
+      const servers = (data && typeof data === 'object' && data.mcpServers) ? data.mcpServers : {};
+      if (fs.existsSync(mcpFile)) {
+        await fsp.writeFile(mcpFile, JSON.stringify({ mcpServers: servers }, null, 2) + '\n', 'utf-8');
+      }
+      return servers;
+    }
+  } catch {}
+
   if (!fs.existsSync(mcpFile)) return {};
 
   try {
     const raw = await fsp.readFile(mcpFile, 'utf-8');
     const data = JSON.parse(raw);
-    return data.mcpServers || {};
+    return (data && typeof data === 'object' && data.mcpServers) ? data.mcpServers : {};
   } catch {
     return {};
   }
 }
 
 /**
- * Persists servers to local .mcp.json and reconciles .agents/mcp.json symlink.
+ * Persists servers to local .mcp.json and .agents/mcp.json in lockstep.
  */
 export async function saveLocalMcps(
   workspaceRoot: string,
@@ -31,23 +52,19 @@ export async function saveLocalMcps(
   await ensureWorkspaceDirs(workspaceRoot);
   const { mcpFile, agentMcpSymlink } = getWorkspacePaths(workspaceRoot);
 
-  const payload = { mcpServers };
-  await fsp.writeFile(mcpFile, JSON.stringify(payload, null, 2) + '\n', 'utf-8');
+  const payload = JSON.stringify({ mcpServers: mcpServers || {} }, null, 2) + '\n';
+  await fsp.writeFile(mcpFile, payload, 'utf-8');
 
-  // Ensure compatibility symlink .agents/mcp.json -> ../.mcp.json
-  const stat = await fsp.lstat(agentMcpSymlink).catch(() => null);
-  if (!stat) {
-    try {
-      await fsp.symlink('../.mcp.json', agentMcpSymlink);
-    } catch {}
-  }
+  try {
+    await fsp.writeFile(agentMcpSymlink, payload, 'utf-8');
+  } catch {}
 }
 
 /**
  * Activates an MCP server for the workspace. Copies from catalog if not present.
  */
 export async function enableMcp(workspaceRoot: string, serverName: string): Promise<OperationResult> {
-  if (!serverName || typeof serverName !== 'string') {
+  if (!isValidName(serverName)) {
     return { success: false, message: `Invalid server name: "${serverName}"` };
   }
 
@@ -78,6 +95,10 @@ export async function enableMcp(workspaceRoot: string, serverName: string): Prom
  * Prevents token injection while preserving configuration.
  */
 export async function disableMcp(workspaceRoot: string, serverName: string): Promise<OperationResult> {
+  if (!isValidName(serverName)) {
+    return { success: false, message: `Invalid server name: "${serverName}"` };
+  }
+
   const localServers = await listLocalMcps(workspaceRoot);
 
   if (!(serverName in localServers)) {
@@ -93,6 +114,10 @@ export async function disableMcp(workspaceRoot: string, serverName: string): Pro
  * Removes an MCP server completely from the local workspace .mcp.json.
  */
 export async function removeMcp(workspaceRoot: string, serverName: string): Promise<OperationResult> {
+  if (!isValidName(serverName)) {
+    return { success: false, message: `Invalid server name: "${serverName}"` };
+  }
+
   const localServers = await listLocalMcps(workspaceRoot);
 
   if (!(serverName in localServers)) {
@@ -111,8 +136,8 @@ export async function registerMcpInCatalog(
   serverName: string,
   config: { command: string; args?: string[]; env?: Record<string, string>; description?: string }
 ): Promise<OperationResult> {
-  if (!serverName || !config?.command) {
-    return { success: false, message: 'Server name and command are required.' };
+  if (!isValidName(serverName) || !config?.command) {
+    return { success: false, message: 'Valid server name and command are required.' };
   }
 
   const catalog = await getCatalogMcps();

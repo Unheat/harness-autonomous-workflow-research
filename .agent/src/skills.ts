@@ -5,6 +5,10 @@ import { GLOBAL_SKILLS_DIR } from './config';
 import { getWorkspacePaths, ensureWorkspaceDirs } from './workspace';
 import type { LocalSkillInfo, OperationResult, SkillRemoveResult, SkillCreateResult } from './types';
 
+function isValidSkillName(name: string): boolean {
+  return !(!name || typeof name !== 'string' || !name.trim() || name.includes('..') || name.includes('/') || name.includes('\\'));
+}
+
 /**
  * Lists all active and dormant skills in a workspace.
  */
@@ -12,7 +16,6 @@ export async function listLocalSkills(workspaceRoot: string): Promise<LocalSkill
   const { skillsDir, dormantSkillsDir } = getWorkspacePaths(workspaceRoot);
   const skills: LocalSkillInfo[] = [];
 
-  // 1. Read active skills (.agents/skills/)
   if (fs.existsSync(skillsDir)) {
     try {
       const entries = await fsp.readdir(skillsDir, { withFileTypes: true });
@@ -20,29 +23,22 @@ export async function listLocalSkills(workspaceRoot: string): Promise<LocalSkill
         const fullPath = path.join(skillsDir, entry.name);
         const isLink = entry.isSymbolicLink();
         let target: string | undefined;
-
         if (isLink) {
-          try {
-            target = await fsp.readlink(fullPath);
-          } catch {}
+          try { target = await fsp.readlink(fullPath); } catch {}
         }
-
-        const hasSkillMd = fs.existsSync(path.join(fullPath, 'SKILL.md'));
-        if (isLink || hasSkillMd) {
+        if (isLink || fs.existsSync(path.join(fullPath, 'SKILL.md'))) {
           skills.push({ name: entry.name, isLink, target, isDormant: false });
         }
       }
     } catch {}
   }
 
-  // 2. Read dormant local skills (.agents/dormant/)
   if (fs.existsSync(dormantSkillsDir)) {
     try {
       const dormantEntries = await fsp.readdir(dormantSkillsDir, { withFileTypes: true });
       for (const entry of dormantEntries) {
         const fullPath = path.join(dormantSkillsDir, entry.name);
-        const hasSkillMd = fs.existsSync(path.join(fullPath, 'SKILL.md'));
-        if (hasSkillMd) {
+        if (fs.existsSync(path.join(fullPath, 'SKILL.md'))) {
           skills.push({ name: entry.name, isLink: false, isDormant: true });
         }
       }
@@ -56,9 +52,10 @@ export async function listLocalSkills(workspaceRoot: string): Promise<LocalSkill
  * Activates a skill in the workspace.
  * Restores from dormant if present, or symlinks from global catalog.
  */
-export async function addSkill(workspaceRoot: string, skillName: string): Promise<OperationResult> {
-  if (!skillName || typeof skillName !== 'string' || skillName.includes('..') || skillName.includes('/') || skillName.includes('\\')) {
-    return { success: false, message: `Invalid skill name: "${skillName}"` };
+export async function addSkill(workspaceRoot: string, rawSkillName: string): Promise<OperationResult> {
+  const skillName = (rawSkillName || '').trim();
+  if (!isValidSkillName(skillName)) {
+    return { success: false, message: `Invalid skill name: "${rawSkillName}"` };
   }
 
   await ensureWorkspaceDirs(workspaceRoot);
@@ -72,7 +69,6 @@ export async function addSkill(workspaceRoot: string, skillName: string): Promis
     return { success: false, message: `Skill "${skillName}" is already active in this workspace.` };
   }
 
-  // 1. If dormant local folder exists, restore it to active
   if (fs.existsSync(dormantTarget)) {
     try {
       await fsp.rename(dormantTarget, localTarget);
@@ -82,7 +78,6 @@ export async function addSkill(workspaceRoot: string, skillName: string): Promis
     }
   }
 
-  // 2. Symlink from catalog if present
   if (fs.existsSync(catalogSource)) {
     try {
       await fsp.symlink(catalogSource, localTarget);
@@ -101,11 +96,12 @@ export async function addSkill(workspaceRoot: string, skillName: string): Promis
  */
 export async function removeSkill(
   workspaceRoot: string,
-  skillName: string,
+  rawSkillName: string,
   permanentDelete = false
 ): Promise<SkillRemoveResult> {
-  if (!skillName || skillName.includes('..') || skillName.includes('/') || skillName.includes('\\')) {
-    return { success: false, message: `Invalid skill name: "${skillName}"` };
+  const skillName = (rawSkillName || '').trim();
+  if (!isValidSkillName(skillName)) {
+    return { success: false, message: `Invalid skill name: "${rawSkillName}"` };
   }
 
   const { skillsDir, dormantSkillsDir } = getWorkspacePaths(workspaceRoot);
@@ -117,7 +113,6 @@ export async function removeSkill(
     return { success: false, message: `Skill "${skillName}" is not active in this workspace.` };
   }
 
-  // Symlink: safely unlink
   if (localStat.isSymbolicLink()) {
     try {
       await fsp.unlink(localTarget);
@@ -127,7 +122,6 @@ export async function removeSkill(
     }
   }
 
-  // Physical directory: Permanent delete requested
   if (permanentDelete) {
     try {
       await fsp.rm(localTarget, { recursive: true, force: true });
@@ -137,7 +131,6 @@ export async function removeSkill(
     }
   }
 
-  // Physical directory: Move to dormant (safe deactivation without losing code)
   try {
     await fsp.mkdir(dormantSkillsDir, { recursive: true });
     await fsp.rename(localTarget, dormantTarget);
@@ -152,11 +145,12 @@ export async function removeSkill(
  */
 export async function createLocalSkill(
   workspaceRoot: string,
-  skillName: string,
+  rawSkillName: string,
   description = ''
 ): Promise<SkillCreateResult> {
-  if (!skillName || skillName.includes('..') || skillName.includes('/') || skillName.includes('\\')) {
-    return { success: false, message: `Invalid skill name: "${skillName}"` };
+  const skillName = (rawSkillName || '').trim();
+  if (!isValidSkillName(skillName)) {
+    return { success: false, message: `Invalid skill name: "${rawSkillName}"` };
   }
 
   await ensureWorkspaceDirs(workspaceRoot);
@@ -169,19 +163,7 @@ export async function createLocalSkill(
   }
 
   const desc = description.trim() || `Project-specific capability for ${skillName}.`;
-  const content = `---
-name: ${skillName}
-description: "${desc}"
----
-
-# ${skillName}
-
-${desc}
-
-## Instructions
-
-1. Describe step-by-step guidance here.
-`;
+  const content = `---\nname: ${skillName}\ndescription: "${desc}"\n---\n\n# ${skillName}\n\n${desc}\n\n## Instructions\n\n1. Describe step-by-step guidance here.\n`;
 
   try {
     await fsp.mkdir(skillFolder, { recursive: true });
