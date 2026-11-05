@@ -1,12 +1,20 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR } from './config';
 import { getWorkspacePaths, ensureWorkspaceDirs } from './workspace';
 import type { LocalSkillInfo, OperationResult, SkillRemoveResult, SkillCreateResult } from './types';
 
 function isValidSkillName(name: string): boolean {
   return !(!name || typeof name !== 'string' || !name.trim() || name.includes('..') || name.includes('/') || name.includes('\\'));
+}
+
+export function isSkillActiveGlobally(skillName: string): boolean {
+  const home = os.homedir();
+  const zMd = path.join(home, '.zcode', 'skills', skillName, 'SKILL.md');
+  const cMd = path.join(home, '.claude', 'skills', skillName, 'SKILL.md');
+  return fs.existsSync(zMd) || fs.existsSync(cMd);
 }
 
 /**
@@ -70,6 +78,13 @@ export async function addSkill(workspaceRoot: string, rawSkillName: string): Pro
   const localStat = await fsp.lstat(localTarget).catch(() => null);
   if (localStat) {
     return { success: false, message: `Skill "${skillName}" is already active in this workspace.` };
+  }
+
+  if (isSkillActiveGlobally(skillName)) {
+    return {
+      success: true,
+      message: `Skill "${skillName}" is already active machine-wide via Global scope. No local symlink created (avoids duplicate prompt injection).`
+    };
   }
 
   if (fs.existsSync(dormantTarget)) {
