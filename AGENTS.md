@@ -1,74 +1,36 @@
-# Project Agent Guidelines & Workflow Rules
+# Project Agent Guidelines: Universal Workflow Engine
 
-This document is the **Single Source of Truth** for all AI coding agents working in this repository (ZCode, Claude Code, Codex, DeepSeek Harness, OpenCode, Cursor).
-
----
-
-## 1. Task Routing & Lifecycle
-
-- **Small Tasks (Fix typos, bugfix in 1-2 files):**
-  - Implement directly using TDD (Test-Driven Development).
-  - Verify with local test runner before completing.
-- **Large / Ambiguous Tasks (New features, architectural refactoring):**
-  - **Step 1:** Use OpenSpec (`/opsx:propose` or `openspec change`) to define requirements and acceptance criteria.
-  - **Step 2:** Stop and wait for user approval of the spec.
-  - **Step 3:** Break into an implementation plan with bite-sized tasks (2-5 minutes each).
-  - **Step 4:** Execute tasks via Subagent-Driven Development (SDD).
+This repository designs, standardizes, and implements the **Universal Cross-Harness Agentic Workflow Engine** (portable across Claude Code, ZCode, Cursor, Codex, DeepSeek Harness, OpenCode).
 
 ---
 
-## 2. Subagent & Skill Scoping Rules
+## 1. Operating Model in this Repository
 
-To prevent context pollution and token waste:
-1. **Implementer subagent:** Always dispatch using type `sdd-worker` (configured in `.agent/agents/sdd-worker.md` with tool `Skill` stripped).
-2. **Reviewer subagent:** Always dispatch using type `sdd-reviewer` (read-only verification).
-3. **Task Briefs:** Hand off requirements to subagents via dedicated brief files, never by dumping full conversation history.
-4. **Domain References:** Specialized domain knowledge lives in `docs/references/*.md`. Instruct workers to `Read` specific files on-demand.
+- **Process**: Normal Git workflow driven by GitHub Spec Kit (`.specify/`).
+- **Roadmap & Milestones**: See `specs/001-universal-workflow-engine/tasks.md` for rolling milestones.
+- **Mandatory Automated Tests**: All code modifications must include automated unit test coverage covering normal and edge cases before task completion.
 
 ---
 
-## 3. Worktree Isolation
+## 2. Progressive Disclosure & Context Pointers
 
-- For multi-task plans or non-trivial branches, work in an isolated worktree under `.worktrees/<branch-name>`.
-- Always verify `.worktrees/` is in `.gitignore` before creating worktrees.
-- Verify clean test baseline before applying changes.
+To keep context windows clean, detailed rules and specifications are loaded on demand:
 
----
-
-## 4. Compound Memory (Lessons Learned)
-
-- **Before Planning:** Check `docs/solutions/` for known pitfalls and previous architectural decisions.
-- **After Completion:** When finishing a development branch or solving a non-obvious bug, summarize the root cause, verified fix, and key files in `docs/solutions/<topic>.md`.
+- **Target Architecture & Design Proposal**:
+  Read `specs/001-universal-workflow-engine/architecture.md` and `docs/references/workflow-design-proposal.md` for system blueprints and donor decomposition.
+- **Tooling, Skills & Environment Protocol**:
+  When installing, modifying, moving, symlinking, or configuring skills, hooks, workflows, or MCP servers, load and strictly follow `harness-protocol`.
+- **Compound Memory**:
+  Check `docs/solutions/` for known pitfalls before planning; record verified root-cause fixes upon resolving non-trivial bugs.
 
 ---
 
-## 5. Canonical Skill Management & Storage Rules (3-Layer Architecture)
+## 3. Clean Code & Engineering Standards
 
-To eliminate skill duplication and broken symlinks:
-
-1. **Storage Layer (Single Source of Truth & Symlinks)**:
-   - **Project-scoped skills**: MUST reside in `.agents/skills/<skill-name>/`.
-   - **Machine-global skills**: MUST reside in `~/.agents/skills/<skill-name>/`.
-   - All harness adapter folders (`.claude/skills`, `.zcode/skills`, `.cursor/skills`) are single symlinks pointing directly to `../.agents/skills`.
-
-2. **Installation Layer (Official Vercel Skills CLI)**:
-   - Always install via the official `skills` CLI using the `-a universal` target (so it writes exclusively to `.agents/skills`):
-     ```bash
-     # Install locally for this project:
-     skills add <package-or-github-url> -a universal
-
-     # Install globally for the entire machine:
-     skills add <package-or-github-url> -g -a universal
-
-     # Remove or update skills cleanly:
-     skills remove <skill-name>
-     skills update
-     ```
-   - For OpenSpec: always initialize using `--tools agents`.
-   - Alternatively, use the local helper `./.agent/scripts/install-skill.sh <url>`.
-
-3. **Enforcement Layer (Hooks & Safety Net)**:
-   - **PreToolUse Guard (`.agent/hooks/guard-skills.py`)**: Blocks any attempt by an agent to write directly into `.claude/skills/` or `.zcode/skills/`, redirecting it to `.agents/skills/`.
-   - **SessionStart Auto-Heal (`.agent/hooks/auto-heal-symlinks.sh`)**: Automatically repairs symlinks at the start of every session if any adapter folder is broken or accidentally overwritten.
-
-
+- **Composition Over Inheritance**: Avoid inheritance (`extends`) across distinct tools or adapters. Compose small, pure utility functions and runners.
+- **No Leaky Abstractions (LSP)**: Consumers must interact with clean interfaces without type assertions or downcasting to concrete adapters.
+- **Decouple Core from Harness/UI (Interface Segregation)**: Core domain logic (catalog, symlinks, workspace resolution) must not depend on UI state or harness-specific CLI idiosyncrasies.
+- **Decompose God Files (< 200 Lines)**: Keep modules single-responsibility and concise. Extract distinct functionality into dedicated files.
+- **Parse at the Boundary, Fail Fast Internally**: Validate CLI flags, user inputs, and JSON configurations at entry boundaries. Never swallow errors with silent `catch` or mask corruption with excessive `?.`.
+- **Impact Analysis**: Inspect all dependent callers when modifying data schemas, function signatures, or symlink contracts.
+- **No Magic Numbers / Strings**: Extract timeouts, ports, and configuration keys into named constants in configuration modules.

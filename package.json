@@ -1,0 +1,18 @@
+{
+  "name": "universal-workflow-engine",
+  "version": "0.1.0",
+  "description": "Universal Cross-Harness Agentic Workflow Engine (Claude Code, ZCode, Cursor, Codex, DeepSeek Harness, OpenCode)",
+  "type": "module",
+  "bin": {
+    "harness": "./.agent/scripts/harness.ts",
+    "agn": "./.agent/scripts/harness.ts"
+  },
+  "scripts": {
+    "test": "bun test ./tests/*.test.ts",
+    "start": "bun .agent/scripts/harness.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "minisearch": "^7.2.0"
+  }
+}

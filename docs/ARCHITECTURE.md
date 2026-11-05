@@ -43,7 +43,7 @@ Modern harnesses discover skills from two distinct scopes:
 | Scope | Location | Visibility | Best Use Case | Context Impact |
 |---|---|---|---|---|
 | **Global Skills** | `~/.agents/skills/`<br>`~/.claude/skills/`<br>`~/.zcode/skills/` | Available in **every conversation** on your machine. | Cross-cutting user preferences (e.g. `caveman`, `ui-ux-pro-max`, `codebase-memory`). | ⚠️ Adds previews to every turn unless model invocation or tool is stripped. |
-| **Folder (Project) Skills** | `.agents/skills/`<br>`.claude/skills/`<br>`.zcode/skills/` | Available **only inside this repository**. | Domain workflows (e.g. `openspec-*`, project deployment). | Only impacts sessions opened in this repository. |
+| **Folder (Project) Skills** | `.agents/skills/`<br>`.claude/skills/`<br>`.zcode/skills/` | Available **only inside this repository**. | Domain workflows (e.g. `speckit-*`, project deployment). | Only impacts sessions opened in this repository. |
 | **Reference Knowledge** | `docs/references/*.md` | **Not registered as skills** (Pure Markdown). | Specialized technical guidelines (regex rules, wrapper quirks). | ✅ **Zero token pollution**. Subagents only read files on-demand. |
 
 ---
@@ -67,8 +67,8 @@ When 30+ global skills exist on a machine, default subagents (`general-purpose`)
 
 ## 4. Multi-Layer Workflow Integration
 
-1. **Spec Layer (OpenSpec):**
-   - For large features, run `/opsx:propose` to create change artifacts under `openspec/changes/`.
+1. **Spec Layer (GitHub Spec Kit):**
+   - For features, run `/speckit-specify` and `/speckit-plan` to create spec and design artifacts under `.specify/` and `specs/`.
    - Requires human review before implementation.
 2. **Execution Layer (Superpowers SDD & TDD):**
    - The coordinator breaks the spec into small tasks.

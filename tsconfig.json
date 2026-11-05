@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["bun-types"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noImplicitAny": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    ".agent/src/**/*",
+    ".agent/scripts/**/*",
+    ".agent/ui/**/*",
+    "tests/**/*"
+  ]
+}
