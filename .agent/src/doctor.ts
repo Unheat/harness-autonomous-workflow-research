@@ -4,7 +4,11 @@ import path from 'node:path';
 import { GLOBAL_ZCODE_CONFIG } from './config';
 import { ensureWorkspaceDirs } from './workspace';
 import { autoTrustWorkspaceMcps } from './mcp-global';
+import { getCatalogSkills } from './catalog';
+import { retargetWorkspaceSkillSymlinks, cleanGlobal } from './clean-global';
 import type { AuditResult, AuditIssue, CleanGlobalResult } from './types';
+
+export { cleanGlobal };
 
 export interface AdapterSymlinkDef {
   link: string;
@@ -128,11 +132,12 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
 }
 
 /**
- * Reconciles and repairs all harness adapter symlinks.
+ * Reconciles, repairs adapter symlinks, prunes dead links, and auto-syncs catalog.
  */
-export async function healWorkspace(workspaceRoot: string): Promise<void> {
+export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
   const root = path.resolve(workspaceRoot);
   await ensureWorkspaceDirs(root);
+  const actions: string[] = [];
 
   for (const item of ADAPTER_SYMLINKS) {
     const fullPath = path.join(root, item.link);
@@ -158,41 +163,40 @@ export async function healWorkspace(workspaceRoot: string): Promise<void> {
 
     try {
       await fsp.symlink(item.target, fullPath);
+      actions.push(`Reconciled adapter: ${item.link}`);
     } catch {}
   }
 
-  // Automatically grant trust signatures for all workspace MCP servers in ZCode
-  await autoTrustWorkspaceMcps(root);
-}
-
-/**
- * Sanitizes global harness configurations so global scope does not override workspace scopes.
- * Ensures heavy servers ('rea', 'local-pdf-rag') in ~/.zcode/cli/config.json are dormant.
- */
-export async function cleanGlobal(): Promise<CleanGlobalResult> {
-  const actions: string[] = [];
-  if (fs.existsSync(GLOBAL_ZCODE_CONFIG)) {
+  // Prune broken skill symlinks in .agents/skills
+  const skillsDir = path.join(root, '.agents', 'skills');
+  if (fs.existsSync(skillsDir)) {
     try {
-      const raw = await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8');
-      const zcfg = JSON.parse(raw);
-      zcfg.mcp = zcfg.mcp || { servers: {} };
-      zcfg.mcp.servers = zcfg.mcp.servers || {};
-
-      for (const heavy of ['rea', 'local-pdf-rag']) {
-        if (zcfg.mcp.servers[heavy] && zcfg.mcp.servers[heavy].enabled !== false) {
-          zcfg.mcp.servers[heavy].enabled = false;
-          actions.push(`Set global server "${heavy}" to inactive (enabled: false) to prevent token bloat across unrelated projects`);
+      const entries = await fsp.readdir(skillsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isSymbolicLink()) {
+          const p = path.join(skillsDir, entry.name);
+          if (!fs.existsSync(p)) {
+            await fsp.unlink(p).catch(() => {});
+            actions.push(`Pruned dead skill link: ${entry.name}`);
+          }
         }
       }
-
-      await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify(zcfg, null, 2) + '\n', 'utf-8');
-    } catch (err: any) {
-      actions.push(`Failed to update ZCode global config: ${err.message}`);
-    }
+    } catch {}
   }
 
-  return {
-    success: true,
-    actions: actions.length > 0 ? actions : ['Global configuration is already clean and optimal.']
-  };
+  // Re-target legacy links pointing to ~/.agents/skills/ to ~/.agents/catalog/skills/
+  const retargetActions = await retargetWorkspaceSkillSymlinks(root);
+  actions.push(...retargetActions);
+
+  // Auto-sync catalog (ingests any rogue/manual skills)
+  const catSkills = await getCatalogSkills();
+  actions.push(`Synced central catalog (${catSkills.length} skills available)`);
+
+  // Automatically grant trust signatures for all workspace MCP servers in ZCode
+  const trustedCount = await autoTrustWorkspaceMcps(root);
+  if (trustedCount > 0) {
+    actions.push(`Granted ZCode SHA-256 trust for ${trustedCount} workspace MCP(s)`);
+  }
+
+  return actions;
 }

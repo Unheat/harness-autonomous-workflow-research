@@ -92,3 +92,16 @@ export interface CleanGlobalResult {
   success: boolean;
   actions: string[];
 }
+
+export interface SubagentInfo {
+  name: string;
+  description: string;
+  scope: 'global' | 'project';
+  filePath: string;
+  tools: string[];
+  disallowedTools: string[];
+  hasTokenShield: boolean;
+  model?: string;
+  color?: string;
+  thoughtLevel?: string;
+}

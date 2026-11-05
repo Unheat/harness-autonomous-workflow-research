@@ -14,10 +14,11 @@ import { fileURLToPath } from 'node:url';
 import { colorize, COLORS } from '../src/config';
 import { findWorkspaceRoot, getWorkspacePaths, ensureWorkspaceDirs, initWorkspace } from '../src/workspace';
 import { addSkill, removeSkill, createLocalSkill } from '../src/skills';
+import { enableGlobalSkill, disableGlobalSkill } from '../src/skills-global';
 import { enableMcp, disableMcp, removeMcp, registerMcpInCatalog } from '../src/mcp';
 import { enableGlobalMcp, disableGlobalMcp, removeGlobalMcp } from '../src/mcp-global';
 import { healWorkspace, cleanGlobal } from '../src/doctor';
-import { printStatus, printCatalog, runDoctor, printHelp } from '../src/cli-printers';
+import { printStatus, printCatalog, runDoctor, printHelp, printSubagents } from '../src/cli-printers';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,7 +52,20 @@ async function handleCommand(cmd: string, args: string[], workspaceRoot: string)
   } else if (['skill', 'skills'].includes(c)) {
     const sub = (args[0] || '').toLowerCase();
     const target = args[1];
-    if (['add', 'on', 'enable'].includes(sub) && target) {
+
+    if (sub === 'global') {
+      const gAct = (args[1] || '').toLowerCase();
+      const gTarget = args[2];
+      if (['on', 'enable'].includes(gAct) && gTarget) {
+        const res = await enableGlobalSkill(gTarget);
+        console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
+      } else if (['off', 'disable'].includes(gAct) && gTarget) {
+        const res = await disableGlobalSkill(gTarget);
+        console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
+      } else {
+        console.log('Usage: skill global on <name> | skill global off <name>');
+      }
+    } else if (['add', 'on', 'enable'].includes(sub) && target) {
       const res = await addSkill(root, target);
       console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
     } else if (['remove', 'rm', 'off', 'disable'].includes(sub) && target) {
@@ -62,7 +76,7 @@ async function handleCommand(cmd: string, args: string[], workspaceRoot: string)
       const res = await createLocalSkill(root, target, desc);
       console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
     } else {
-      console.log('Usage: skill add <name> | skill remove <name> | skill create <name> [desc]');
+      console.log('Usage: skill add <name> | skill remove <name> | skill create <name> [desc] | skill global on/off <name>');
     }
   } else if (['mcp', 'mcps'].includes(c)) {
     const sub = (args[0] || '').toLowerCase();
@@ -102,11 +116,26 @@ async function handleCommand(cmd: string, args: string[], workspaceRoot: string)
   } else if (c === 'doctor') {
     await runDoctor(root);
   } else if (c === 'heal') {
-    await healWorkspace(root);
-    console.log(colorize('✅ Reconciled and healed all adapter symlinks.', COLORS.GREEN));
+    const actions = await healWorkspace(root);
+    actions.forEach(a => console.log(colorize(`• ${a}`, COLORS.GREEN)));
+    console.log(colorize('✅ Workspace healed and reconciled across all harnesses.', COLORS.GREEN));
   } else if (['clean-global', 'cleanglobal'].includes(c)) {
-    const res = await cleanGlobal();
+    const isSkills = args.includes('--skills') || args.includes('skills');
+    const isMcp = args.includes('--mcp') || args.includes('mcp');
+    const isAll = args.includes('--all') || args.includes('all');
+    const res = await cleanGlobal({
+      skills: isSkills ? true : (isMcp ? false : true),
+      mcp: isMcp ? true : (isSkills ? false : true),
+      all: isAll
+    });
     res.actions.forEach(a => console.log(colorize(`• ${a}`, COLORS.GREEN)));
+  } else if (['agent', 'agents', 'subagent', 'subagents'].includes(c)) {
+    const sub = (args[0] || '').toLowerCase();
+    if (['list', 'status', ''].includes(sub)) {
+      await printSubagents(root);
+    } else {
+      console.log('Usage: harness agent list');
+    }
   } else if (c === 'ui') {
     launchUi(root);
   } else {

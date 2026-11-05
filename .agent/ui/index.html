@@ -358,10 +358,21 @@
     </div>
   </div>
 
+  <!-- Subagents Panel -->
+  <div class="panel" style="margin-top: 24px;">
+    <div class="panel-header">
+      <div class="panel-title">🤖 Subagents & Token Shield Governance</div>
+      <div style="font-size: 0.75rem; color: var(--text-muted);">Cross-Harness Parity (Claude, ZCode, Cursor, DSH, Codex)</div>
+    </div>
+    <ul class="item-list" id="subagent-list" style="max-height: 280px;">
+      <!-- Rendered via JS -->
+    </ul>
+  </div>
+
   <div class="toast" id="toast">Saved changes</div>
 
   <script>
-    let state = { skills: [], mcps: [] };
+    let state = { skills: [], mcps: [], subagents: [] };
 
     function showToast(msg) {
       const toast = document.getElementById("toast");
@@ -467,12 +478,53 @@
           };
         });
 
+        state.subagents = data.subagents || [];
+
         buildSearchIndexes();
         renderSkills();
         renderMcps();
+        renderSubagents();
       } catch (err) {
         console.error("Failed to load status:", err);
       }
+    }
+
+    function renderSubagents() {
+      const list = document.getElementById("subagent-list");
+      if (!list) return;
+      list.innerHTML = "";
+
+      if (state.subagents.length === 0) {
+        list.innerHTML = `<li class="item-row"><div class="item-meta">No subagents discovered.</div></li>`;
+        return;
+      }
+
+      state.subagents.forEach(a => {
+        const li = document.createElement("li");
+        li.className = "item-row";
+
+        const scopeBadge = a.scope === "global"
+          ? `<span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc;">Global</span>`
+          : `<span class="badge badge-local">Project</span>`;
+
+        const shieldBadge = a.hasTokenShield
+          ? `<span class="badge" style="background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3);">Shield: Protected ✅</span>`
+          : `<span class="badge" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);">Shield: None ⚠️</span>`;
+
+        const toolsStr = a.tools.length > 0 ? a.tools.join(", ") : "default (all tools)";
+        const strippedStr = a.disallowedTools.length > 0 ? ` · <span style="color: var(--accent);">Stripped: ${a.disallowedTools.join(", ")}</span>` : "";
+
+        li.innerHTML = `
+          <div class="item-info">
+            <div class="item-name">${a.name} ${scopeBadge} ${shieldBadge}</div>
+            <div class="item-meta">${a.description || "Subagent manifest"}</div>
+            <div class="item-meta" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+              Tools: ${toolsStr}${strippedStr}
+            </div>
+          </div>
+        `;
+        list.appendChild(li);
+      });
     }
 
     function renderSkills() {

@@ -3,6 +3,7 @@ import { getWorkspacePaths } from './workspace';
 import { getCatalogSkills, getCatalogMcps } from './catalog';
 import { getEffectiveSkillsList } from './skills-global';
 import { getEffectiveMcpList } from './mcp-global';
+import { listAllSubagents } from './subagents';
 import { auditWorkspace } from './doctor';
 
 export async function printStatus(workspaceRoot: string): Promise<void> {
@@ -62,9 +63,42 @@ export async function printStatus(workspaceRoot: string): Promise<void> {
   const blockedSkills = Math.max(0, catalogSkills.length - activeSkills.length);
   const savedTokens = blockedSkills * TOKENS_PER_SKILL_PREVIEW;
 
+  const subagents = await listAllSubagents(root);
+  console.log(`\n${COLORS.BOLD}🤖 Subagents (${subagents.length} available across harnesses):${COLORS.RESET}`);
+  for (const a of subagents) {
+    const scopeTag = a.scope === 'global' ? colorize('[Global]', COLORS.MAGENTA) : colorize('[Project]', COLORS.CYAN);
+    const shieldTag = a.hasTokenShield ? colorize('[Shield: Protected ✅]', COLORS.GREEN) : colorize('[Shield: None ⚠️]', COLORS.YELLOW);
+    console.log(`  • ${COLORS.BOLD}${a.name.padEnd(20)}${COLORS.RESET} ${scopeTag} ${shieldTag}`);
+  }
+
   console.log(`\n${COLORS.BOLD}🛡️  Context Shield & Token Footprint:${COLORS.RESET}`);
   console.log(`  • Injected Token Footprint: ${colorize(`~${estTokens.toLocaleString()} tokens`, estTokens < 3000 ? COLORS.GREEN : COLORS.YELLOW)}`);
   console.log(`  • Prevented Bloat:          ${colorize(`+${savedTokens.toLocaleString()} tokens saved`, COLORS.GREEN)} (${blockedSkills} catalog skills isolated)\n`);
+}
+
+export async function printSubagents(workspaceRoot: string): Promise<void> {
+  const { root } = getWorkspacePaths(workspaceRoot);
+  const subagents = await listAllSubagents(root);
+
+  console.log(`\n${COLORS.BOLD}${COLORS.CYAN}=== SUBAGENTS (Cross-Harness Parity) ===${COLORS.RESET}\n`);
+  if (subagents.length === 0) {
+    console.log(`  ${COLORS.DIM}No subagents found in this workspace or global scope.${COLORS.RESET}\n`);
+    return;
+  }
+
+  for (const a of subagents) {
+    const scopeTag = a.scope === 'global' ? colorize('[Global]', COLORS.MAGENTA) : colorize('[Project]', COLORS.CYAN);
+    const shieldTag = a.hasTokenShield ? colorize('[Token Shield: Protected ✅]', COLORS.GREEN) : colorize('[Token Shield: None ⚠️]', COLORS.YELLOW);
+    const toolsStr = a.tools.length > 0 ? a.tools.join(', ') : 'default (all tools)';
+    const disallowedStr = a.disallowedTools.length > 0 ? ` (stripped: ${a.disallowedTools.join(', ')})` : '';
+
+    console.log(`  • ${COLORS.BOLD}${a.name.padEnd(20)}${COLORS.RESET} ${scopeTag} ${shieldTag}`);
+    if (a.description) {
+      console.log(`    ${COLORS.DIM}${a.description}${COLORS.RESET}`);
+    }
+    console.log(`    ${COLORS.DIM}Tools: ${toolsStr}${disallowedStr}${COLORS.RESET}`);
+  }
+  console.log();
 }
 
 export async function printCatalog(workspaceRoot: string): Promise<void> {
@@ -132,6 +166,8 @@ export function printHelp(): void {
   console.log(`  ${COLORS.BOLD}skill add <name>${COLORS.RESET}       Enable skill in current workspace (creates symlink)`);
   console.log(`  ${COLORS.BOLD}skill remove <name>${COLORS.RESET}    Disable skill in workspace (moves to dormant or unlinks)`);
   console.log(`  ${COLORS.BOLD}skill create <name>${COLORS.RESET}    Scaffold project-private skill (.agents/skills/<name>)`);
+  console.log(`  ${COLORS.BOLD}skill global on <name>${COLORS.RESET} Enable skill globally in ZCode & Claude Code`);
+  console.log(`  ${COLORS.BOLD}skill global off <name>${COLORS.RESET}Disable skill globally (unlinks global symlink)`);
   console.log(`  ${COLORS.BOLD}mcp on <server>${COLORS.RESET}        Activate MCP server in local .mcp.json (auto-unblocks if needed)`);
   console.log(`  ${COLORS.BOLD}mcp off <server>${COLORS.RESET}       Deactivate MCP server in local .mcp.json (dormant)`);
   console.log(`  ${COLORS.BOLD}mcp rm <server>${COLORS.RESET}        Remove MCP server completely from local .mcp.json`);
@@ -139,8 +175,9 @@ export function printHelp(): void {
   console.log(`  ${COLORS.BOLD}mcp global off <srv>${COLORS.RESET}   Disable server globally in ZCode (User Scope)`);
   console.log(`  ${COLORS.BOLD}mcp global rm <srv>${COLORS.RESET}    Remove server from Global ZCode config so projects can control it`);
   console.log(`  ${COLORS.BOLD}doctor${COLORS.RESET}                 Audit cross-harness symlink, token, and shadowing health`);
+  console.log(`  ${COLORS.BOLD}agent list${COLORS.RESET}             List subagents across harnesses with Token Shield status`);
   console.log(`  ${COLORS.BOLD}heal${COLORS.RESET}                   Auto-repair and reconcile all adapter symlinks`);
-  console.log(`  ${COLORS.BOLD}clean-global${COLORS.RESET}           Remove heavy servers from Global config so projects can control them locally`);
+  console.log(`  ${COLORS.BOLD}clean-global [--skills|--mcp|--all]${COLORS.RESET} Clean global skills/MCPs to stop global token bloat`);
   console.log(`  ${COLORS.BOLD}ui${COLORS.RESET}                     Open local Vibe Coder Web Dashboard`);
   console.log(`  ${COLORS.BOLD}help${COLORS.RESET}                   Show this menu`);
   console.log(`  ${COLORS.BOLD}exit${COLORS.RESET}                   Exit shell\n`);

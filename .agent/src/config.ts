@@ -4,6 +4,7 @@ import path from 'node:path';
 export const HOME_DIR = os.homedir();
 export const GLOBAL_AGENTS_DIR = path.join(HOME_DIR, '.agents');
 export const GLOBAL_CATALOG_DIR = path.join(GLOBAL_AGENTS_DIR, 'catalog');
+export const GLOBAL_CATALOG_SKILLS_DIR = path.join(GLOBAL_CATALOG_DIR, 'skills');
 export const GLOBAL_SKILLS_DIR = path.join(GLOBAL_AGENTS_DIR, 'skills');
 export const GLOBAL_MCPS_FILE = path.join(GLOBAL_CATALOG_DIR, 'mcps.json');
 

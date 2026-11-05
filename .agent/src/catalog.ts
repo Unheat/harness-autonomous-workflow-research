@@ -1,34 +1,78 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { GLOBAL_SKILLS_DIR, GLOBAL_MCPS_FILE } from './config';
+import os from 'node:os';
+import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_MCPS_FILE } from './config';
 import type { McpServerConfig, McpCatalog } from './types';
 
 /**
+ * Copies a skill directory into central catalog (~/.agents/catalog/skills/) if not already there.
+ */
+export async function syncSkillToCatalog(sourcePath: string, skillName: string): Promise<boolean> {
+  try {
+    const targetDir = path.join(GLOBAL_CATALOG_SKILLS_DIR, skillName);
+    if (fs.existsSync(path.join(targetDir, 'SKILL.md'))) return true;
+
+    await fsp.mkdir(GLOBAL_CATALOG_SKILLS_DIR, { recursive: true });
+    // If source is a symlink, resolve real path so we copy actual content
+    const realSource = fs.realpathSync(sourcePath);
+    if (!fs.existsSync(path.join(realSource, 'SKILL.md'))) return false;
+
+    await fsp.cp(realSource, targetDir, { recursive: true, dereference: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Returns sorted list of all skill names in global catalog.
+ * Resilient: scans ~/.agents/catalog/skills/ AND auto-ingests any manual/bypassed skills
+ * found in ~/.zcode/skills, ~/.claude/skills, or ~/.agents/skills.
  */
 export async function getCatalogSkills(): Promise<string[]> {
-  if (!fs.existsSync(GLOBAL_SKILLS_DIR)) {
-    return [];
-  }
+  const skillsSet = new Set<string>();
 
-  try {
-    const entries = await fsp.readdir(GLOBAL_SKILLS_DIR, { withFileTypes: true });
-    const skills: string[] = [];
-
-    for (const entry of entries) {
-      if (entry.isDirectory() || entry.isSymbolicLink()) {
-        const skillMd = path.join(GLOBAL_SKILLS_DIR, entry.name, 'SKILL.md');
-        if (fs.existsSync(skillMd)) {
-          skills.push(entry.name);
+  // 1. Primary Catalog Storage
+  if (fs.existsSync(GLOBAL_CATALOG_SKILLS_DIR)) {
+    try {
+      const entries = await fsp.readdir(GLOBAL_CATALOG_SKILLS_DIR, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() || entry.isSymbolicLink()) {
+          const md = path.join(GLOBAL_CATALOG_SKILLS_DIR, entry.name, 'SKILL.md');
+          if (fs.existsSync(md)) skillsSet.add(entry.name);
         }
       }
-    }
-
-    return skills.sort();
-  } catch {
-    return [];
+    } catch {}
   }
+
+  // 2. Auto-discovery & Ingest of rogue/manual skills across global roots
+  const home = os.homedir();
+  const auxiliaryDirs = [
+    GLOBAL_SKILLS_DIR, // ~/.agents/skills
+    path.join(home, '.zcode', 'skills'),
+    path.join(home, '.claude', 'skills')
+  ];
+
+  for (const dir of auxiliaryDirs) {
+    if (!fs.existsSync(dir)) continue;
+    try {
+      const entries = await fsp.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const skillDir = path.join(dir, entry.name);
+        const md = path.join(skillDir, 'SKILL.md');
+        if (fs.existsSync(md)) {
+          skillsSet.add(entry.name);
+          // If not in catalog, auto-archive it
+          if (!fs.existsSync(path.join(GLOBAL_CATALOG_SKILLS_DIR, entry.name, 'SKILL.md'))) {
+            await syncSkillToCatalog(skillDir, entry.name);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return Array.from(skillsSet).sort();
 }
 
 /**
@@ -38,7 +82,6 @@ export async function getCatalogMcps(): Promise<Record<string, McpServerConfig>>
   if (!fs.existsSync(GLOBAL_MCPS_FILE)) {
     return {};
   }
-
   try {
     const raw = await fsp.readFile(GLOBAL_MCPS_FILE, 'utf-8');
     const data: McpCatalog = JSON.parse(raw);
@@ -50,7 +93,7 @@ export async function getCatalogMcps(): Promise<Record<string, McpServerConfig>>
 
 /**
  * Parses description from a skill's SKILL.md.
- * Checks workspace local folders (.agents/skills, .agents/dormant) first, then global catalog.
+ * Checks workspace local folders (.agents/skills, .agents/dormant) first, then catalog, then auxiliaries.
  */
 export async function getSkillDescription(skillName: string, workspaceRoot?: string): Promise<string> {
   const candidatePaths: string[] = [];
@@ -58,7 +101,12 @@ export async function getSkillDescription(skillName: string, workspaceRoot?: str
     candidatePaths.push(path.join(workspaceRoot, '.agents', 'skills', skillName, 'SKILL.md'));
     candidatePaths.push(path.join(workspaceRoot, '.agents', 'dormant', skillName, 'SKILL.md'));
   }
+  candidatePaths.push(path.join(GLOBAL_CATALOG_SKILLS_DIR, skillName, 'SKILL.md'));
   candidatePaths.push(path.join(GLOBAL_SKILLS_DIR, skillName, 'SKILL.md'));
+
+  const home = os.homedir();
+  candidatePaths.push(path.join(home, '.zcode', 'skills', skillName, 'SKILL.md'));
+  candidatePaths.push(path.join(home, '.claude', 'skills', skillName, 'SKILL.md'));
 
   for (const skillMd of candidatePaths) {
     if (fs.existsSync(skillMd)) {

@@ -48,12 +48,14 @@ describe('Unified Resource Abstraction (Skills & MCPs)', () => {
 
     const hasSkills = resources.some(r => r.kind === 'skill');
     const hasMcps = resources.some(r => r.kind === 'mcp');
+    const hasSubagents = resources.some(r => r.kind === 'subagent');
     expect(hasSkills).toBe(true);
     expect(hasMcps).toBe(true);
+    expect(hasSubagents).toBe(true);
 
     for (const r of resources) {
       expect(r.id).toBeDefined();
-      expect(['skill', 'mcp', 'hook', 'plugin']).toContain(r.kind);
+      expect(['skill', 'mcp', 'hook', 'plugin', 'subagent']).toContain(r.kind);
       expect(['global', 'project', 'catalog']).toContain(r.scope);
       expect(['active', 'dormant', 'not_configured']).toContain(r.globalState);
       expect(['active', 'dormant', 'not_configured']).toContain(r.workspaceState);

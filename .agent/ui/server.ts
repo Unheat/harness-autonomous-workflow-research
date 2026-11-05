@@ -17,6 +17,7 @@ import { addSkill, removeSkill } from '../src/skills';
 import { getEffectiveSkillsList } from '../src/skills-global';
 import { listLocalMcps, enableMcp, disableMcp } from '../src/mcp';
 import { getEffectiveMcpList, listGlobalMcps, enableGlobalMcp, disableGlobalMcp, removeGlobalMcp } from '../src/mcp-global';
+import { listAllSubagents } from '../src/subagents';
 import { healWorkspace } from '../src/doctor';
 import { TOKENS_PER_SKILL_PREVIEW, TOKENS_PER_MCP_SCHEMA, COLORS } from '../src/config';
 import { checkPortAvailable, findAvailablePort, parseJsonBody } from './server-helpers';
@@ -68,6 +69,7 @@ export async function createDashboardServer(workspaceRoot: string = process.cwd(
       const globalMcps = await listGlobalMcps();
       const catalogSkills = await getCatalogSkills();
       const catalogMcps = await getCatalogMcps();
+      const subagents = await listAllSubagents(root);
 
       const activeSkillsCount = effectiveSkills.filter(s => s.effectiveActive).length;
       const activeMcpCount = effectiveMcps.filter(m => m.effectiveActive).length;
@@ -93,7 +95,8 @@ export async function createDashboardServer(workspaceRoot: string = process.cwd(
           local: localMcps,
           global: globalMcps,
           catalog: catalogMcps
-        }
+        },
+        subagents
       };
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

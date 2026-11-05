@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { GLOBAL_SKILLS_DIR } from './config';
+import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR } from './config';
 import { getWorkspacePaths, ensureWorkspaceDirs } from './workspace';
 import type { LocalSkillInfo, OperationResult, SkillRemoveResult, SkillCreateResult } from './types';
 
@@ -62,7 +62,10 @@ export async function addSkill(workspaceRoot: string, rawSkillName: string): Pro
   const { skillsDir, dormantSkillsDir } = getWorkspacePaths(workspaceRoot);
   const localTarget = path.join(skillsDir, skillName);
   const dormantTarget = path.join(dormantSkillsDir, skillName);
-  const catalogSource = path.join(GLOBAL_SKILLS_DIR, skillName);
+  let catalogSource = path.join(GLOBAL_CATALOG_SKILLS_DIR, skillName);
+  if (!fs.existsSync(catalogSource)) {
+    catalogSource = path.join(GLOBAL_SKILLS_DIR, skillName);
+  }
 
   const localStat = await fsp.lstat(localTarget).catch(() => null);
   if (localStat) {

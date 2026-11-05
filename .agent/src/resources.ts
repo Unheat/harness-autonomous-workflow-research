@@ -1,8 +1,9 @@
 import { getEffectiveSkillsList } from './skills-global';
 import { getEffectiveMcpList } from './mcp-global';
-import type { EffectiveSkillInfo, EffectiveMcpInfo } from './types';
+import { listAllSubagents } from './subagents';
+import type { EffectiveSkillInfo, EffectiveMcpInfo, SubagentInfo } from './types';
 
-export type ResourceKind = 'skill' | 'mcp' | 'hook' | 'plugin';
+export type ResourceKind = 'skill' | 'mcp' | 'hook' | 'plugin' | 'subagent';
 export type UnifiedScope = 'global' | 'project' | 'catalog';
 export type UnifiedState = 'active' | 'dormant' | 'not_configured';
 
@@ -22,6 +23,22 @@ export interface UnifiedResource {
 
 const TOKENS_PER_SKILL = 350;
 const TOKENS_PER_MCP = 300;
+const TOKENS_PER_SUBAGENT = 200;
+
+export function normalizeSubagent(a: SubagentInfo): UnifiedResource {
+  return {
+    id: `subagent:${a.name}`,
+    name: a.name,
+    kind: 'subagent',
+    scope: a.scope,
+    globalState: a.scope === 'global' ? 'active' : 'not_configured',
+    workspaceState: a.scope === 'project' ? 'active' : 'not_configured',
+    effectiveActive: true,
+    isShadowed: false,
+    description: a.description,
+    tokenCostEstimate: TOKENS_PER_SUBAGENT
+  };
+}
 
 export function normalizeSkill(s: EffectiveSkillInfo): UnifiedResource {
   const globalState: UnifiedState = s.isGlobalActive ? 'active' : 'not_configured';
@@ -69,9 +86,11 @@ export function normalizeMcp(m: EffectiveMcpInfo): UnifiedResource {
 export async function getUnifiedResources(workspaceRoot: string): Promise<UnifiedResource[]> {
   const skills = await getEffectiveSkillsList(workspaceRoot);
   const mcps = await getEffectiveMcpList(workspaceRoot);
+  const subagents = await listAllSubagents(workspaceRoot);
 
   return [
     ...skills.map(normalizeSkill),
-    ...mcps.map(normalizeMcp)
+    ...mcps.map(normalizeMcp),
+    ...subagents.map(normalizeSubagent)
   ];
 }
