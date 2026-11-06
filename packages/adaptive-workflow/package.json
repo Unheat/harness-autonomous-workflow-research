@@ -1,0 +1,13 @@
+{
+  "name": "adaptive-workflow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-contained adaptive workflow contracts: versioned workflow documents, hash-pinned evidence, task-kind acceptance policy, bounded logical delegation. No model dependencies.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test"
+  }
+}

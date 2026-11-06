@@ -1,9 +1,10 @@
+import './isolated-home';
 import { describe, test, expect } from 'bun:test';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { listLocalMcps, enableMcp, disableMcp, removeMcp } from '../.agent/src/mcp';
+const { listLocalMcps, enableMcp, disableMcp, removeMcp } = await import('../.agent/src/mcp');
 
 describe('mcp module', () => {
   test('lifecycle: enable, disable, and remove per-workspace', async () => {

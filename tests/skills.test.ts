@@ -1,10 +1,11 @@
+import './isolated-home';
 import { describe, test, expect } from 'bun:test';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { listLocalSkills, addSkill, removeSkill, createLocalSkill } from '../.agent/src/skills';
-import { GLOBAL_SKILLS_DIR } from '../.agent/src/config';
+const { listLocalSkills, addSkill, removeSkill, createLocalSkill } = await import('../.agent/src/skills');
+const { GLOBAL_SKILLS_DIR } = await import('../.agent/src/config');
 
 describe('skills module', () => {
   test('boundary validation: rejects malicious or empty names', async () => {

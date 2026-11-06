@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 
 import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_ZCODE_CONFIG } from './config';
-import { getCatalogSkills, syncSkillToCatalog } from './catalog';
+import { syncSkillToCatalog } from './catalog';
 import type { CleanGlobalResult } from './types';
 
 export interface CleanGlobalOptions {
@@ -54,9 +54,6 @@ export async function cleanGlobalSkills(keepSkills: string[] = DEFAULT_GLOBAL_SK
   const actions: string[] = [];
   const home = os.homedir();
 
-  // Ensure central catalog has all skills before removing anything
-  await getCatalogSkills();
-
   // 1. Clean ~/.agents/skills/
   if (fs.existsSync(GLOBAL_SKILLS_DIR)) {
     try {
@@ -69,7 +66,10 @@ export async function cleanGlobalSkills(keepSkills: string[] = DEFAULT_GLOBAL_SK
 
         // Ensure archived in catalog
         if (!fs.existsSync(path.join(catalogPath, 'SKILL.md'))) {
-          await syncSkillToCatalog(fullPath, entry.name);
+          if (!await syncSkillToCatalog(fullPath, entry.name)) {
+            actions.push(`Preserved global skill ${entry.name}: catalog archive failed`);
+            continue;
+          }
         }
 
         try {
@@ -99,6 +99,10 @@ export async function cleanGlobalSkills(keepSkills: string[] = DEFAULT_GLOBAL_SK
       for (const entry of entries) {
         if (keepSkills.includes(entry.name)) continue;
         const p = path.join(dir, entry.name);
+        if (!await syncSkillToCatalog(p, entry.name)) {
+          actions.push(`Preserved global skill ${entry.name}: catalog archive failed`);
+          continue;
+        }
         try {
           if (entry.isSymbolicLink()) {
             await fsp.unlink(p);

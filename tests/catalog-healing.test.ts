@@ -1,12 +1,13 @@
+import './isolated-home';
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { getCatalogSkills, syncSkillToCatalog } from '../.agent/src/catalog';
-import { healWorkspace } from '../.agent/src/doctor';
-import { addSkill } from '../.agent/src/skills';
-import { enableGlobalSkill, disableGlobalSkill } from '../.agent/src/skills-global';
+const { getCatalogSkills, syncSkillToCatalog } = await import('../.agent/src/catalog');
+const { healWorkspace } = await import('../.agent/src/doctor');
+const { addSkill } = await import('../.agent/src/skills');
+const { enableGlobalSkill, disableGlobalSkill } = await import('../.agent/src/skills-global');
 
 describe('Catalog Isolation, Continuous Discovery & Self-Healing', () => {
   let tempWs: string;
@@ -75,7 +76,7 @@ describe('Catalog Isolation, Continuous Discovery & Self-Healing', () => {
     expect(await fsp.lstat(zcodeSkills).catch(() => null)).toBeNull(); // ZCode reads .agents/skills natively
   });
 
-  test('healWorkspace: prunes redundant local symlink when skill is promoted to Global', async () => {
+  test('healWorkspace: preserves a valid local symlink even when its name is active globally', async () => {
     // 1. Setup local symlink for harness-protocol (which is active in ~/.zcode/skills)
     const skillsDir = path.join(tempWs, '.agents', 'skills');
     await fsp.mkdir(skillsDir, { recursive: true });
@@ -86,11 +87,11 @@ describe('Catalog Isolation, Continuous Discovery & Self-Healing', () => {
 
     // 2. Run healWorkspace
     const actions = await healWorkspace(tempWs);
-    expect(actions.some(a => a.includes('harness-protocol') && a.includes('redundant'))).toBe(true);
+    expect(actions.some(a => a.includes('harness-protocol') && a.includes('redundant'))).toBe(false);
 
-    // 3. Verify redundant local symlink is pruned
+    // 3. Verify the valid local declaration is preserved
     const existsAfter = await fsp.lstat(localLink).catch(() => null);
-    expect(existsAfter).toBeNull();
+    expect(existsAfter?.isSymbolicLink()).toBe(true);
   });
 
   test('global skill lifecycle: enableGlobalSkill and disableGlobalSkill', async () => {

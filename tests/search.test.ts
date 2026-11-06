@@ -1,3 +1,4 @@
+import './isolated-home';
 import { describe, test, expect } from 'bun:test';
 import MiniSearch from 'minisearch';
 

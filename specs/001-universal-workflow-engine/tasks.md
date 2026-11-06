@@ -1,7 +1,7 @@
-# Tasks: Universal Cross-Harness Agentic Workflow Engine
+# Tasks: Universal Cross-Harness Adaptive Workflow Engine
 
-**Input**: Design documents from `specs/001-universal-workflow-engine/`
-**Architecture Blueprint**: [architecture.md](architecture.md)
+**Input**: Design documents from `specs/001-universal-workflow-engine/`  
+**Architecture Blueprint**: [architecture.md](architecture.md) & [universal-adaptive-workflow-architecture.md](../../docs/references/universal-adaptive-workflow-architecture.md)  
 **Prerequisites**: `spec.md`, `plan.md`, `architecture.md`, `.specify/memory/constitution.md`
 
 > **Progressive Elaboration Note**: This task checklist follows rolling-wave milestones. Future milestones remain high-level placeholders and are elaborated into granular, testable tasks only when their preceding milestone passes verification.
@@ -23,7 +23,7 @@
 
 ---
 
-## Milestone 2: Spec Kit Integration & Architecture Decomposition (Completed) 🎯
+## Milestone 2: Spec Kit Integration & Architecture Consensus (Completed) 🎯
 
 **Objective**: Standardize Spec-Driven Development using GitHub Spec Kit, formalize donor decomposition, and define end-to-end data flow.
 
@@ -33,77 +33,61 @@
 - [x] T012 Ratify project constitution in `.specify/memory/constitution.md`
 - [x] T013 Author feature specification in `specs/001-universal-workflow-engine/spec.md`
 - [x] T014 Author technical implementation plan in `specs/001-universal-workflow-engine/plan.md`
-- [x] T015 Author architecture blueprint and donor decomposition matrix in `specs/001-universal-workflow-engine/architecture.md`
-- [x] T016 Reorganize `tasks.md` into progressive milestone scaffolds
+- [x] T015 Author architecture blueprint in `specs/001-universal-workflow-engine/architecture.md`
+- [x] T016 Formalize Complete Adaptive Architecture & 2-Level Subagent Spec in `docs/references/universal-adaptive-workflow-architecture.md`
 
 ---
 
-## Milestone 3: Universal Harness CLI & Catalog Engine (`harness` / `agn`) (Completed) 🎯
+## Milestone 3: Early Pruning Gates & Unified F2P Lifecycle (Active Next) 🎯
 
-**Objective**: Eliminate token flooding, implement 9Router-style zero-prefix CLI, central catalog, pure TypeScript Bun architecture, and automated tests.
+**Objective**: Port CodePath rubrics into deterministic, exit-code-driven early pruning judges preventing shallow fixes and review debris.
 
-- [x] T017 Clean & standardize `AGENTS.md` to <100 lines following Progressive Disclosure and clean-code principles
-- [x] T018 Establish machine central catalog in `~/.agents/catalog/mcps.json`
-- [x] T019 Install and link Paul Bakaus's `impeccable` design QA skill into `~/.agents/skills/impeccable`
-- [x] T020 Author complete Spec Kit feature specification in `spec.md` (User Stories US6-US12) and `plan.md`
-- [x] T021 Configure `tsconfig.json` and `package.json` for native Bun TypeScript execution and testing
-- [x] T022 Implement strongly-typed core modules in `.agent/src/*.ts` (`types`, `config`, `workspace`, `catalog`, `skills`, `mcp`, `doctor`)
-- [x] T023 Implement TypeScript zero-prefix CLI & interactive REPL in `.agent/scripts/harness.ts` with global symlinks `harness` & `agn`
-- [x] T024 Implement type-safe vibe-coder Web UI dashboard in `.agent/ui/server.ts`
-- [x] T025 Convert test suite to `tests/*.test.ts` and verify 100% pass rate via `bun test`
-- [x] T026 Update `~/.agents/skills/harness-protocol/SKILL.md` to guide agents to use `harness` CLI natively
+- [ ] T017 [P] Create `.agent/judges/` and vendor CodePath evaluation rubrics (`rubrics/plan.md`, `rubrics/repro.md`, `rubrics/pr.md`) as immutable contracts
+- [ ] T018 Implement `judge-repro.sh`: Gate 1 for bugs (verifies exit code $\ne 0$ proving failure RED) and acceptance test verification for features
+- [ ] T019 Implement `judge-plan.sh`: Gate 2 early pruning check (evaluates `grounded-cause`, `bounded-scope`, `startable`, `decisive-test`)
+- [ ] T020 Implement `judge-pr.sh`: Gate 3 final check (evaluates `plan-fidelity`, `clean-diff`, zero review debris, and full regression pass)
+- [ ] T021 Add automated test coverage in `tests/judges.test.ts` verifying judge verdicts on sample pass/fail diffs and plans
 
 ---
 
-## Milestone 4: Vendored SDD Execution & Upstream Sync (Active Next)
+## Milestone 4: 2-Level Subagent Topology & Worktree Feature Runner (Active Next)
 
-**Objective**: Enable zero-friction open-source portability by vendoring core prompts into the repo with automated upstream sync.
+**Objective**: Implement strictly bounded 2-level recursion (Max Depth = 2) with token shields and worktree isolation.
 
-- [ ] T026 [P] Create `.agent/templates/sdd/` and vendor core execution prompts (`implementer-prompt.md`, `task-reviewer-prompt.md`) with Token Shield headers
-- [ ] T027 Build automated upstream sync script (`.agent/scripts/sync-upstream.sh`) to diff and pull latest Superpowers/Spec Kit templates
-- [ ] T028 Update `sdd-worker.md` and `sdd-reviewer.md` to reference internal vendored templates relative to repository root
-- [ ] T029 Verify subagent dispatch with zero skill preview leakage using `manage.sh`
-
----
-
-## Milestone 4: Outer Autonomous Task Runner (Placeholder)
-
-**Objective**: Autonomous worktree isolation and unattended issue-to-PR loop (borrowed from DSH).
-
-- [ ] *Elaborate when Milestone 3 completes:*
-  - Task intake script (`.agent/scripts/run-task.sh`)
-  - Automated git worktree provisioning under `.worktrees/<branch-name>`
-  - Project test runner baseline autodetection (npm, cargo, pytest, poetry)
-  - Diff extraction and clean PR summary packaging
+- [ ] T022 [P] Vendor core SDD templates (`implementer-prompt.md`, `task-reviewer-prompt.md`) into `.agent/templates/sdd/` with Token Shield headers
+- [ ] T023 Configure Level 2 leaf helper subagents (`explore-code`, `research`, `frontend-design`) strictly enforcing `disallowedTools: [Agent, Skill]`
+- [ ] T024 Implement `.agent/scripts/run-task.sh`: Autonomous L1 worktree feature runner provisioning `.worktrees/<feature>-<lane>`
+- [ ] T025 Implement 3-round retry circuit breaker in the L1 review loop before escalating to human
 
 ---
 
-## Milestone 5: Circuit Breakers & Escalation Protocol (Placeholder)
+## Milestone 5: Level 0 CEO System Thinking & Paperclip Fork Control Plane
 
-**Objective**: Bounded review cycles preventing infinite ping-pong between worker and reviewer.
+**Objective**: Fork Paperclip for the Web Dashboard Control Plane, equip Level 0 with CEO/PM system thinking, and connect to L1 worktrees.
 
-- [ ] *Elaborate when Milestone 4 completes:*
-  - 3-round retry circuit breaker logic in SDD coordinator instructions
-  - Structured human escalation prompt when unresolvable architectural conflict occurs
-
----
-
-## Milestone 6: Compound Solution Memory (Placeholder)
-
-**Objective**: Automated institutional knowledge distillation into version-controlled markdown.
-
-- [ ] *Elaborate when Milestone 5 completes:*
-  - Solution note template (`docs/solutions/template.md`)
-  - Mandatory pre-planning review check in `AGENTS.md`
-  - Initial verified solution notes for cross-harness symlinks and token stripping
+- [ ] T026 Fork `paperclipai/paperclip`, strip financial/cent-level budget overhead, and configure embedded database runtime
+- [ ] T027 Implement L0 CEO Cognitive Intent Router classifying goals into **Route A (CEO/PM Broad Discovery & Gaps Matrix)** or **Route B (Fast-Track)**
+- [ ] T028 Implement Paperclip adapter enhancement: inject Git Worktree isolation (`.worktrees/`) and Token Shield (`disallowedTools: [Skill, Agent]`) into `claude_local` and `dsh_local`
+- [ ] T029 Implement Topological Dependency Sorting and Concurrency Throttling (`max_parallel_l1 = 2`, serial L2 helpers) in L0 coordinator
+- [ ] T030 Implement `workflow init [archetype]` dynamic scaffolding (supporting `swe`, `game-design`, and `research`)
 
 ---
 
-## Milestone 7: Open-Source Release & One-Command Setup (Placeholder)
+## Milestone 6: Self-Adaptive Triad (Hindsight Memory & Harness² on DSH)
+
+**Objective**: Enable autonomous memory compounding and harness self-optimization with locked runtime boundaries.
+
+- [ ] T030 Integrate Hindsight Memory Engine via MCP in `.mcp.json` for causal session indexing and retrieval
+- [ ] T031 Implement session failure inbox logger (`.agent/memory/inbox/<session>.json`) during active task runs
+- [ ] T032 Implement offline "Dreaming" script (`.agent/scripts/dream.sh`) to deduplicate inbox traces and update `docs/solutions/<topic>.md`
+- [ ] T033 Integrate Google Harness² / `@xisnn/harness2-dsh` Propose-Probe-Compose loop for DSH configuration presets
+
+---
+
+## Milestone 7: Open-Source Release, Benchmarking & Packaging
 
 **Objective**: Package the repository for public distribution under user account (`Unheat`).
 
-- [ ] *Elaborate when Milestone 6 completes:*
-  - Dynamic `$HOME` path de-hardcoding across all scripts and MCP configs
-  - One-command installer script (`setup.sh`)
-  - Comprehensive public `README.md` and architecture documentation
+- [ ] T034 [P] De-hardcode absolute user home paths across all scripts and MCP configs using dynamic `$HOME`
+- [ ] T035 Author comprehensive public `README.md` explaining the 2-level topology, Early Pruning Gates, and DSH integration
+- [ ] T036 Author one-command installer script (`setup.sh`) for new machines

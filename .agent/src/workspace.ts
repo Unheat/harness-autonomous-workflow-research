@@ -3,6 +3,68 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import type { WorkspacePaths, InitWorkspaceResult } from './types';
 
+export interface AdapterSymlinkDef {
+  link: string;
+  target: string;
+}
+
+// ZCode reads .agents/skills natively: a second skills adapter duplicates prompts.
+export const ADAPTER_SYMLINKS: AdapterSymlinkDef[] = [
+  // Skills adapters
+  { link: '.claude/skills', target: '../.agents/skills' },
+  { link: '.cursor/skills', target: '../.agents/skills' },
+  { link: '.dsh/skills', target: '../.agents/skills' },
+  { link: '.codex/skills', target: '../.agents/skills' },
+  { link: '.opencode/skills', target: '../.agents/skills' },
+
+  // Subagents adapters
+  { link: '.claude/agents', target: '../.agent/agents' },
+  { link: '.zcode/agents', target: '../.agent/agents' },
+  { link: '.cursor/agents', target: '../.agent/agents' },
+  { link: '.codex/agents', target: '../.agent/agents' },
+  { link: '.dsh/agents', target: '../.agent/agents' },
+  { link: '.opencode/agents', target: '../.agent/agents' },
+
+  // MCP configuration adapters
+  { link: '.agents/mcp.json', target: '../.mcp.json' },
+  { link: '.cursor/mcp.json', target: '../.mcp.json' },
+  { link: '.dsh/mcp.json', target: '../.mcp.json' }
+];
+
+/** Only repair links; physical folders and files require an explicit migration. */
+export async function reconcileWorkspaceAdapters(root: string): Promise<string[]> {
+  const actions: string[] = [];
+  for (const { link, target } of ADAPTER_SYMLINKS) {
+    if (link.endsWith('/mcp.json') && !fs.existsSync(path.join(root, '.mcp.json'))) continue;
+    const full = path.join(root, link);
+    await fsp.mkdir(path.dirname(full), { recursive: true });
+    const stat = await fsp.lstat(full).catch((err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') return null;
+      throw err;
+    });
+    if (stat && !stat.isSymbolicLink()) {
+      actions.push(`Preserved physical adapter: ${link} (manual migration required)`);
+      continue;
+    }
+    if (stat) {
+      if (await fsp.readlink(full) === target) continue;
+      await fsp.unlink(full);
+    }
+    await fsp.symlink(target, full);
+    actions.push(`Reconciled adapter: ${link}`);
+  }
+  const zcodeSkills = path.join(root, '.zcode', 'skills');
+  const stat = await fsp.lstat(zcodeSkills).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === 'ENOENT') return null;
+    throw err;
+  });
+  if (stat?.isSymbolicLink() && path.resolve(path.dirname(zcodeSkills), await fsp.readlink(zcodeSkills)) === path.join(root, '.agents', 'skills')) {
+    await fsp.unlink(zcodeSkills);
+    actions.push('Pruned redundant .zcode/skills adapter (native .agents/skills discovery)');
+  }
+  return actions;
+}
+
 /**
  * Ascends directory tree to find repository or workspace root.
  * Marker indicators: .git, .agents, .mcp.json
@@ -91,44 +153,7 @@ export async function initWorkspace(targetDir: string = process.cwd()): Promise<
     await fsp.writeFile(paths.mcpFile, JSON.stringify({ mcpServers: {} }, null, 2) + '\n', 'utf-8');
   }
 
-  // Create .agents/mcp.json symlink
-  const mcpSymStat = await fsp.lstat(paths.agentMcpSymlink).catch(() => null);
-  if (!mcpSymStat) {
-    try {
-      await fsp.symlink('../.mcp.json', paths.agentMcpSymlink);
-    } catch {}
-  }
-
-  // Link adapters: Claude, ZCode, Cursor, DSH, Codex
-  const adapters: Array<{ dir: string; skills?: string; agents?: string }> = [
-    { dir: '.claude', skills: '../.agents/skills', agents: '../.agent/agents' },
-    { dir: '.zcode', skills: '../.agents/skills', agents: '../.agent/agents' },
-    { dir: '.cursor', skills: '../.agents/skills' },
-    { dir: '.dsh', skills: '../.agents/skills', agents: '../.agent/agents' },
-    { dir: '.codex', agents: '../.agent/agents' },
-    { dir: '.opencode', agents: '../.agent/agents' }
-  ];
-
-  for (const a of adapters) {
-    const harnessDir = path.join(root, a.dir);
-    await fsp.mkdir(harnessDir, { recursive: true });
-
-    if (a.skills) {
-      const linkPath = path.join(harnessDir, 'skills');
-      const stat = await fsp.lstat(linkPath).catch(() => null);
-      if (!stat) {
-        await fsp.symlink(a.skills, linkPath).catch(() => {});
-      }
-    }
-
-    if (a.agents) {
-      const linkPath = path.join(harnessDir, 'agents');
-      const stat = await fsp.lstat(linkPath).catch(() => null);
-      if (!stat) {
-        await fsp.symlink(a.agents, linkPath).catch(() => {});
-      }
-    }
-  }
+  await reconcileWorkspaceAdapters(root);
 
   return { success: true, message: `Initialized workspace "${paths.name}"`, root, name: paths.name };
 }

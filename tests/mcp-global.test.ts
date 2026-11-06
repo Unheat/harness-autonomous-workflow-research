@@ -1,12 +1,13 @@
+import './isolated-home';
 import { describe, test, expect } from 'bun:test';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { getEffectiveMcpList, listGlobalMcps, enableGlobalMcp, disableGlobalMcp, removeGlobalMcp } from '../.agent/src/mcp-global';
-import { saveLocalMcps } from '../.agent/src/mcp';
-import { auditWorkspace } from '../.agent/src/doctor';
-import { GLOBAL_ZCODE_CONFIG } from '../.agent/src/config';
+const { getEffectiveMcpList, listGlobalMcps, enableGlobalMcp, disableGlobalMcp, removeGlobalMcp } = await import('../.agent/src/mcp-global');
+const { saveLocalMcps } = await import('../.agent/src/mcp');
+const { auditWorkspace } = await import('../.agent/src/doctor');
+const { GLOBAL_ZCODE_CONFIG } = await import('../.agent/src/config');
 
 describe('MCP Global & Effective Resolution Engine', () => {
   test('shadowing detection: Global dormant overrides Workspace active', async () => {

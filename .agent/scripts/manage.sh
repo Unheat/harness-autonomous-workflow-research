@@ -13,7 +13,7 @@ fi
 echo ""
 
 echo "--- 2. HARNESS SYMLINK INTEGRITY ---"
-for h in .claude .zcode .codex .opencode .dsh; do
+for h in .claude .zcode .cursor .codex .opencode .dsh; do
     if [ -L "$h/agents" ]; then
         target=$(readlink "$h/agents")
         echo "✅ $h/agents -> $target"
@@ -21,12 +21,20 @@ for h in .claude .zcode .codex .opencode .dsh; do
         echo "⚠️  $h/agents is NOT a symlink or missing"
     fi
 done
-for h in .claude .zcode .cursor .dsh; do
+for h in .claude .cursor .dsh .codex .opencode; do
     if [ -L "$h/skills" ]; then
         target=$(readlink "$h/skills")
         echo "✅ $h/skills -> $target"
     else
         echo "⚠️  $h/skills is NOT a symlink or missing"
+    fi
+done
+echo "ℹ️  .zcode natively scans .agents/skills (no duplicate adapter required)"
+for h in .agents .cursor .dsh; do
+    if [ -L "$h/mcp.json" ] || [ -f "$h/mcp.json" ]; then
+        echo "✅ $h/mcp.json is active"
+    else
+        echo "⚠️  $h/mcp.json is missing"
     fi
 done
 echo ""

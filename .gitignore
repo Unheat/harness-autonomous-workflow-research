@@ -22,3 +22,13 @@ global-configs/
 
 # speckit-guide for developer
 speckit-guide.md
+
+# Isolated local workbench dependencies, data and test artifacts
+.workbench/
+artifacts/workbench/
+**/dist/
+**/.env
+**/.env.*
+!**/.env.example
+playwright-report/
+test-results/

@@ -1,14 +1,15 @@
+import './isolated-home';
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import {
+const {
   parseSubagentFile,
   listProjectSubagents,
   listGlobalSubagents,
   listAllSubagents
-} from '../.agent/src/subagents';
-import { normalizeSubagent } from '../.agent/src/resources';
+} = await import('../.agent/src/subagents');
+const { normalizeSubagent } = await import('../.agent/src/resources');
 
 describe('Subagent Discovery & Token Shield Governance', () => {
   let tempDir: string;

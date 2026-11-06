@@ -1,12 +1,12 @@
+import './isolated-home';
 import { describe, test, expect } from 'bun:test';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { listLocalMcps, saveLocalMcps, enableMcp, disableMcp, removeMcp } from '../.agent/src/mcp';
-import { listLocalSkills, addSkill, removeSkill, createLocalSkill } from '../.agent/src/skills';
-import { autoTrustWorkspaceMcps } from '../.agent/src/mcp-global';
-import { checkPortAvailable, findAvailablePort } from '../.agent/ui/server-helpers';
+const { listLocalMcps, saveLocalMcps, enableMcp, disableMcp, removeMcp } = await import('../.agent/src/mcp');
+const { listLocalSkills, addSkill, removeSkill, createLocalSkill } = await import('../.agent/src/skills');
+const { checkPortAvailable, findAvailablePort } = await import('../.agent/ui/server-helpers');
 
 describe('Exhaustive Edge Cases & Fault Tolerance', () => {
   test('MCP: handles malformed JSON without crashing', async () => {
@@ -85,26 +85,6 @@ describe('Exhaustive Edge Cases & Fault Tolerance', () => {
     // Re-add restores from dormant
     const readded = await addSkill(tmpWs, 'clean-name');
     expect(readded.success).toBe(true);
-
-    await fsp.rm(tmpWs, { recursive: true, force: true });
-  });
-
-  test('Auto-Trust: computes valid 64-character SHA-256 digest', async () => {
-    const tmpWs = await fsp.mkdtemp(path.join(os.tmpdir(), 'harness-edge-trust-'));
-
-    await saveLocalMcps(tmpWs, {
-      mockserver: { command: 'node', args: ['server.js'], enabled: true }
-    });
-
-    const count = await autoTrustWorkspaceMcps(tmpWs);
-    expect(count).toBeGreaterThan(0);
-
-    const trustFilePath = path.join(os.homedir(), '.zcode', 'security', 'workspace-mcp-trust-v1.json');
-    const content = JSON.parse(await fsp.readFile(trustFilePath, 'utf-8'));
-
-    const record = content.records.find((r: any) => r.workspaceIdentity === tmpWs && r.serverName === 'mockserver');
-    expect(record).toBeDefined();
-    expect(record.declarationDigest).toMatch(/^[a-f0-9]{64}$/);
 
     await fsp.rm(tmpWs, { recursive: true, force: true });
   });

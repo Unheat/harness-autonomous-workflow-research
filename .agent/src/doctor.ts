@@ -2,31 +2,15 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { GLOBAL_ZCODE_CONFIG } from './config';
-import { ensureWorkspaceDirs } from './workspace';
-import { autoTrustWorkspaceMcps } from './mcp-global';
-import { getCatalogSkills } from './catalog';
+import { ensureWorkspaceDirs, ADAPTER_SYMLINKS, reconcileWorkspaceAdapters } from './workspace';
 import { listGlobalActiveSkills } from './skills-global';
-import { retargetWorkspaceSkillSymlinks, cleanGlobal } from './clean-global';
-import type { AuditResult, AuditIssue, CleanGlobalResult } from './types';
+import { cleanGlobal } from './clean-global';
+import type { AuditResult, AuditIssue } from './types';
 
 export { cleanGlobal };
 
-export interface AdapterSymlinkDef {
-  link: string;
-  target: string;
-}
-
-export const ADAPTER_SYMLINKS: AdapterSymlinkDef[] = [
-  { link: '.claude/skills', target: '../.agents/skills' },
-  { link: '.cursor/skills', target: '../.agents/skills' },
-  { link: '.dsh/skills', target: '../.agents/skills' },
-  { link: '.claude/agents', target: '../.agent/agents' },
-  { link: '.zcode/agents', target: '../.agent/agents' },
-  { link: '.codex/agents', target: '../.agent/agents' },
-  { link: '.dsh/agents', target: '../.agent/agents' },
-  { link: '.opencode/agents', target: '../.agent/agents' },
-  { link: '.agents/mcp.json', target: '../.mcp.json' }
-];
+export { ADAPTER_SYMLINKS } from './workspace';
+export type { AdapterSymlinkDef } from './workspace';
 
 /**
  * Audits workspace configuration across all harnesses.
@@ -45,8 +29,8 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
       continue;
     }
     if (!stat.isSymbolicLink()) {
-      if (item.link === '.agents/mcp.json' && stat.isFile()) {
-        continue; // ZCode GUI edits .agents/mcp.json directly in lockstep sync
+      if (item.link.endsWith('/mcp.json') && stat.isFile()) {
+        continue; // Harness GUIs (ZCode/Cursor/DSH) may edit mcp.json directly in lockstep sync
       }
       issues.push({ severity: 'error', message: `${item.link} is a physical directory, not a symlink! Causes duplication.` });
       continue;
@@ -81,7 +65,7 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
           } else if (globalNames.has(entry.name)) {
             issues.push({
               severity: 'warning',
-              message: `Skill "${entry.name}" is active in both Global User Scope and Workspace Scope. Run \`harness heal\` to prune redundant local link.`
+              message: `Skill "${entry.name}" is active in both Global User Scope and Workspace Scope. Both declarations are preserved; review scope explicitly.`
             });
           }
         }
@@ -140,58 +124,16 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
 }
 
 /**
- * Reconciles, repairs adapter symlinks, prunes dead links, and auto-syncs catalog.
+ * Repairs workspace adapters and prunes dead skill links without changing user scope.
  */
 export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
   const root = path.resolve(workspaceRoot);
   await ensureWorkspaceDirs(root);
-  const actions: string[] = [];
+  const paths = path.join(root, '.agent', 'agents');
+  await fsp.mkdir(paths, { recursive: true });
+  const actions = await reconcileWorkspaceAdapters(root);
 
-  for (const item of ADAPTER_SYMLINKS) {
-    const fullPath = path.join(root, item.link);
-    const parentDir = path.dirname(fullPath);
-    await fsp.mkdir(parentDir, { recursive: true });
-
-    const stat = await fsp.lstat(fullPath).catch(() => null);
-
-    if (stat) {
-      if (stat.isSymbolicLink()) {
-        try {
-          const currentTarget = await fsp.readlink(fullPath);
-          if (currentTarget === item.target && fs.existsSync(fullPath)) continue;
-          await fsp.unlink(fullPath);
-        } catch {
-          await fsp.unlink(fullPath).catch(() => {});
-        }
-      } else if (stat.isDirectory()) {
-        const contents = await fsp.readdir(fullPath).catch(() => []);
-        if (contents.length === 0) await fsp.rmdir(fullPath).catch(() => {});
-      }
-    }
-
-    try {
-      await fsp.symlink(item.target, fullPath);
-      actions.push(`Reconciled adapter: ${item.link}`);
-    } catch {}
-  }
-
-  // Prune redundant .zcode/skills symlink if present (ZCode natively scans .agents/skills)
-  const zcodeSkills = path.join(root, '.zcode', 'skills');
-  const zStat = await fsp.lstat(zcodeSkills).catch(() => null);
-  if (zStat?.isSymbolicLink()) {
-    await fsp.unlink(zcodeSkills).catch(() => {});
-    actions.push('Pruned redundant .zcode/skills adapter (ZCode natively scans .agents/skills)');
-  }
-
-  // Re-target legacy links pointing to ~/.agents/skills/ to ~/.agents/catalog/skills/ first
-  const retargetActions = await retargetWorkspaceSkillSymlinks(root);
-  actions.push(...retargetActions);
-
-  // De-duplicate: Prune local skill symlinks if the skill is already active globally in User Scope
-  const globalSkills = await listGlobalActiveSkills();
-  const globalActiveNames = new Set(globalSkills.map(g => g.name));
-
-  // Prune broken or redundant skill symlinks in .agents/skills
+  // Prune broken skill symlinks in .agents/skills
   const skillsDir = path.join(root, '.agents', 'skills');
   if (fs.existsSync(skillsDir)) {
     try {
@@ -202,23 +144,10 @@ export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
           if (!fs.existsSync(p)) {
             await fsp.unlink(p).catch(() => {});
             actions.push(`Pruned dead skill link: ${entry.name}`);
-          } else if (globalActiveNames.has(entry.name)) {
-            await fsp.unlink(p).catch(() => {});
-            actions.push(`Pruned redundant local symlink "${entry.name}" (already active globally in User Scope)`);
           }
         }
       }
     } catch {}
-  }
-
-  // Auto-sync catalog (ingests any rogue/manual skills)
-  const catSkills = await getCatalogSkills();
-  actions.push(`Synced central catalog (${catSkills.length} skills available)`);
-
-  // Automatically grant trust signatures for all workspace MCP servers in ZCode
-  const trustedCount = await autoTrustWorkspaceMcps(root);
-  if (trustedCount > 0) {
-    actions.push(`Granted ZCode SHA-256 trust for ${trustedCount} workspace MCP(s)`);
   }
 
   return actions;

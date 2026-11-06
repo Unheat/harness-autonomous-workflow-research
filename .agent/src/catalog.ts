@@ -27,8 +27,7 @@ export async function syncSkillToCatalog(sourcePath: string, skillName: string):
 
 /**
  * Returns sorted list of all skill names in global catalog.
- * Resilient: scans ~/.agents/catalog/skills/ AND auto-ingests any manual/bypassed skills
- * found in ~/.zcode/skills, ~/.claude/skills, or ~/.agents/skills.
+ * Read-only: private user and workspace skills are never automatically archived.
  */
 export async function getCatalogSkills(): Promise<string[]> {
   const skillsSet = new Set<string>();
@@ -41,32 +40,6 @@ export async function getCatalogSkills(): Promise<string[]> {
         if (entry.isDirectory() || entry.isSymbolicLink()) {
           const md = path.join(GLOBAL_CATALOG_SKILLS_DIR, entry.name, 'SKILL.md');
           if (fs.existsSync(md)) skillsSet.add(entry.name);
-        }
-      }
-    } catch {}
-  }
-
-  // 2. Auto-discovery & Ingest of rogue/manual skills across global roots
-  const home = os.homedir();
-  const auxiliaryDirs = [
-    GLOBAL_SKILLS_DIR, // ~/.agents/skills
-    path.join(home, '.zcode', 'skills'),
-    path.join(home, '.claude', 'skills')
-  ];
-
-  for (const dir of auxiliaryDirs) {
-    if (!fs.existsSync(dir)) continue;
-    try {
-      const entries = await fsp.readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const skillDir = path.join(dir, entry.name);
-        const md = path.join(skillDir, 'SKILL.md');
-        if (fs.existsSync(md)) {
-          skillsSet.add(entry.name);
-          // If not in catalog, auto-archive it
-          if (!fs.existsSync(path.join(GLOBAL_CATALOG_SKILLS_DIR, entry.name, 'SKILL.md'))) {
-            await syncSkillToCatalog(skillDir, entry.name);
-          }
         }
       }
     } catch {}

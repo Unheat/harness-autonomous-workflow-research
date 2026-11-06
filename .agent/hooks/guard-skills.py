@@ -21,7 +21,9 @@ def main():
         r"/\.claude/skills/",
         r"/\.zcode/skills/",
         r"/\.cursor/skills/",
-        r"/\.codex/skills/"
+        r"/\.codex/skills/",
+        r"/\.dsh/skills/",
+        r"/\.opencode/skills/"
     ]
 
     for pattern in forbidden_patterns:

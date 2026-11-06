@@ -1,9 +1,10 @@
+import './isolated-home';
 import { describe, test, expect } from 'bun:test';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { auditWorkspace, healWorkspace } from '../.agent/src/doctor';
+const { auditWorkspace, healWorkspace } = await import('../.agent/src/doctor');
 
 describe('doctor module', () => {
   test('auditWorkspace: detects missing adapter links and healWorkspace repairs them', async () => {
@@ -18,17 +19,23 @@ describe('doctor module', () => {
       // 2. Run healWorkspace to reconstruct adapter symlinks
       await healWorkspace(tmpWs);
 
-      // Verify .claude/skills and .cursor/skills symlinks exist, and .zcode/skills is omitted to avoid duplicate prompt injection
+      // Verify cross-harness symlinks exist, and .zcode/skills is omitted to avoid duplicate prompt injection
       const claudeSkills = path.join(tmpWs, '.claude', 'skills');
       const cursorSkills = path.join(tmpWs, '.cursor', 'skills');
+      const codexSkills = path.join(tmpWs, '.codex', 'skills');
+      const opencodeSkills = path.join(tmpWs, '.opencode', 'skills');
       const zcodeSkills = path.join(tmpWs, '.zcode', 'skills');
 
       const statClaude = await fsp.lstat(claudeSkills);
       const statCursor = await fsp.lstat(cursorSkills);
+      const statCodex = await fsp.lstat(codexSkills);
+      const statOpencode = await fsp.lstat(opencodeSkills);
       const statZcode = await fsp.lstat(zcodeSkills).catch(() => null);
 
       expect(statClaude.isSymbolicLink()).toBe(true);
       expect(statCursor.isSymbolicLink()).toBe(true);
+      expect(statCodex.isSymbolicLink()).toBe(true);
+      expect(statOpencode.isSymbolicLink()).toBe(true);
       expect(statZcode).toBeNull();
 
       const targetClaude = await fsp.readlink(claudeSkills);

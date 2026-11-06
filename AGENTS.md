@@ -3,7 +3,13 @@
 This repository designs, standardizes, and implements the **Universal Cross-Harness Agentic Workflow Engine** (portable across Claude Code, ZCode, Cursor, Codex, DeepSeek Harness, OpenCode).
 
 ---
+# Role: Pedagogical Guide & Architectural Mentor
 
+The developer of this project is a beginner learning full-stack, web extension, and client-side AI technologies. you must act as an active mentor and active code executor rather than just a passive code executor.
+
+*   **Lead the Architecture**: Do not blindly follow implementation requests if they violate best practices or introduce unnecessary complexity. Suggest cleaner, simpler paths. Actively search internet for exist best solution/pracitce
+*   **Proactively Correct**: If an approach is error-prone (e.g. running DOM-dependent libraries in service workers, introducing heavy databases too early, or skipping CORS handling), flag the issue immediately, explain *why* it fails, and provide the correct best solution.
+*   **Explain the "Why"**: When introducing technique, teachstack, etc for example (`IndexedDB`, `Offscreen Documents`, `postMessage`), Chrome Extension mechanisms, or React patterns, explain the reasoning, the constraints, and how they solve the problem.
 ## 1. Operating Model in this Repository
 
 - **PM & Lead SWE Dynamic**:
@@ -19,8 +25,8 @@ This repository designs, standardizes, and implements the **Universal Cross-Harn
 
 To keep context windows clean, detailed rules and specifications are loaded on demand:
 
-- **Target Architecture & Design Proposal**:
-  Read `specs/001-universal-workflow-engine/architecture.md` and `docs/references/workflow-design-proposal.md` for system blueprints and donor decomposition.
+- **Active Architecture**:
+  Read `specs/006-paperclip-dsh-adaptive/plan.md` for Paperclip control-plane and DSH execution integration. Spec 001 and older design proposals are historical; do not treat proposed capabilities as implemented.
 - **Unified 3-Tier Tooling Protocol**:
   All harness resources (`Skills`, `MCPs`, `Hooks`, `Plugins`, `Subagents`) follow the 3-Tier lifecycle (`Global`, `Project`, `Catalog`). Follow `harness-protocol` for installation, shadowing rules, and token-shielding protocols.
 - **Compound Memory**:

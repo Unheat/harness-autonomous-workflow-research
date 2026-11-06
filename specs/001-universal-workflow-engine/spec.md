@@ -1,225 +1,116 @@
-# Feature Specification: Universal Cross-Harness Agentic Workflow Engine
+# Feature Specification: Universal Cross-Harness Adaptive Workflow Engine
 
-**Feature Branch**: `001-universal-workflow-engine`
-
-**Created**: 2026-11-02
-
-**Status**: Active / Implementation
-
-**Architecture Blueprint**: [architecture.md](architecture.md)
-
-**Input**: User specification: "Build a portable, open-standard workflow architecture operating across Claude Code, ZCode, Codex, DeepSeek Harness, Cursor, and OpenCode with 3-layer skill enforcement, subagent tool-stripping context protection, TDD, and dual-gate SDD review."
+**Feature Branch**: `001-universal-workflow-engine`  
+**Created**: 2026-11-02 | **Updated**: 2026-11-05  
+**Status**: Active / Implementation  
+**Architecture Blueprint**: [architecture.md](architecture.md) & [universal-adaptive-workflow-architecture.md](../../docs/references/universal-adaptive-workflow-architecture.md)
 
 ---
 
-## Architecture & Donor Synthesis
+## 1. System Vision & Architecture
 
-This workflow synthesizes 5 core open-source donor projects into an integrated stack (see [architecture.md](architecture.md) for full matrix):
-1. **GitHub Spec Kit** (`github/spec-kit`): Planning, constitution, feature specs, and bug diagnostics.
-2. **Superpowers** (`obra/superpowers`): Subagent-Driven Development (SDD) core loop, task briefs, and two-stage review.
-3. **Everything Claude Code (ECC)** (`affaan-m/everything-claude-code`): PreToolUse guards and SessionStart auto-healing hooks.
-4. **DeepSeek Harness (DSH)** (`deepseek-ai/dsh`): Unattended issue-to-PR outer runner and git worktree isolation.
-5. **GEAR** (`rsi-gear/gear`): Benchmark evaluation metrics (pass rates, token costs, retry churn).
+The **Universal Adaptive Workflow Engine** is a portable, cross-harness autonomous development system designed for DeepSeek Harness (DSH) and multi-agent coding environments. It provides:
+1. **2-Level Recursive Subagent Topology (Max Depth = 2)**: Level 0 (CEO/PM Orchestrator) $\to$ Level 1 (Worktree Milestone Lead) $\to$ Level 2 (Specialized Leaf Helpers).
+2. **Cognitive Intent Router**: Evaluates task ambiguity to automatically switch between **Route A (CEO/PM Broad Discovery & Gaps Tracker)** and **Route B (Fast-Track Direct Execution)**.
+3. **Unified Fail-to-Pass (F2P) Lifecycle**: A single universal engineering cycle (`RED` $\to$ `Grounded Plan` $\to$ `GREEN` $\to$ `P2P Regression Gate`) with **Early Pruning Judges** (`judge-repro`, `judge-plan`, `judge-pr`).
+4. **Dynamic Project Scaffolding**: Archetype routing for SWE (code contracts, test suites) and Non-SWE (e.g. Game Design GDD, visual-judge, asset validators).
+5. **Self-Adaptive Triad**: Hindsight memory integration, Harness² Propose-Probe-Compose optimization on DSH, and plug-and-play L2 subagents.
+6. **Two-Phase Adaptation Boundary**: Runtime is strictly locked during active task execution; meta-adaptation occurs offline during dedicated "Dreaming" sessions.
 
 ---
 
-## User Scenarios & Testing *(mandatory)*
+## 2. User Scenarios & Acceptance Criteria *(mandatory)*
 
-### User Story 1 - Multi-Harness Skill & Subagent Single Source of Truth (Priority: P1) 🎯 MVP
+### User Story 1 - 2-Level Recursive Subagent Topology with Token Shields (Priority: P1) 🎯 MVP
 
-As an AI engineer working across multiple coding harnesses (Claude Code, ZCode, Codex, DeepSeek Harness, Cursor), I want all skills and subagent definitions stored canonically in `.agents/skills/` and `.agent/agents/` with automated symlink projection, so that I never suffer from duplicated files, stale edits, or broken symlinks across tools.
+As an engineering lead, I want a 2-level subagent hierarchy where Level 0 delegates milestones to Level 1 worktree workers, and Level 1 can call Level 2 leaf helpers (e.g., `explore-code`, `research`, `frontend-design`), while Level 2 is strictly forbidden from spawning further agents (`disallowedTools: Agent`), so that recursion never explodes into infinite concurrency loops.
 
-**Why this priority**: Solves the fundamental fragmentation of AI coding harnesses at the filesystem level. Without this single source of truth, files drift, updates fail, and harnesses break.
-
-**Independent Test**: Install a skill via Vercel `skills` CLI using `-a universal`; verify that Claude Code, ZCode, Cursor, and DSH immediately see the identical skill file without manual copying.
+**Why this priority**: Eliminates token starvation, rate limiting (HTTP 429), and uncontrolled recursive agent sprawl.
 
 **Acceptance Scenarios**:
-1. **Given** a new skill is installed into `.agents/skills/`, **When** any supported harness (Claude, ZCode, Cursor, DSH) accesses its skills directory, **Then** the kernel resolves the symlink to `.agents/skills/` identically.
-2. **Given** an adapter directory (`.claude/skills` or `.zcode/skills`) is accidentally created as a physical directory, **When** `.agent/hooks/auto-heal-symlinks.sh` runs, **Then** existing files are migrated into `.agents/skills/` and the directory is replaced with a relative symlink.
+1. **Given** a Level 0 orchestrator, **When** dispatching a milestone, **Then** it delegates to an L1 worker inside an isolated Git worktree (`.worktrees/<feature>-<lane>`) using a focused Task Brief.
+2. **Given** an L1 worker executing a task, **When** it needs localized code discovery or web research, **Then** it can invoke a Level 2 helper (max depth 2).
+3. **Given** an L2 leaf helper, **When** running, **Then** tool `Agent` and tool `Skill` are stripped via `disallowedTools: [Agent, Skill]`, terminating further recursion.
+4. **Given** L0 concurrency manager, **When** tasks run, **Then** `max_parallel_l1 <= 2` and L2 helpers within an L1 lane execute serially.
 
 ---
 
-### User Story 2 - Subagent Context Stripping & Token Shield (Priority: P1) 🎯 MVP
+### User Story 2 - Cognitive Intent Router (CEO/PM vs. Fast-Track) (Priority: P1) 🎯 MVP
 
-As an orchestrator coordinating subagents, I want implementer subagents (`sdd-worker`) to run with the `Skill` tool explicitly stripped (`disallowedTools: Skill`), so that 30-50 global skill descriptions (7,000+ tokens) are not dumped into the subagent's prompt, preserving context capacity and reasoning accuracy.
+As a developer issuing high-level product goals (e.g., "port an application like Photoshop" or "build this workflow engine"), I want Level 0 to detect ambiguity and automatically activate **Route A (CEO/PM Mode)** to autonomously explore boundaries, build a gap matrix (`docs/gaps.md`), and order milestones, while narrow requests automatically use **Route B (Fast-Track Mode)** without bureaucratic overhead.
 
-**Why this priority**: Eliminates context pollution that degrades model reasoning and inflates token cost by thousands of tokens on every subagent turn.
-
-**Independent Test**: Inspect the system prompt / tool declarations received by `sdd-worker`; verify that zero skill preview tokens are injected and only core execution tools (`Read`, `Edit`, `Write`, `Bash`) are active.
+**Why this priority**: Relieves the human developer from having to manually perform system thinking, feature gap decomposition, and hand-holding for every sub-step.
 
 **Acceptance Scenarios**:
-1. **Given** 40+ skills installed in `~/.agents/skills/`, **When** the coordinator dispatches an `sdd-worker` subagent, **Then** the worker has zero skill catalog descriptions in its turn prompt.
-2. **Given** an implementer needs domain guidance, **When** dispatched, **Then** the coordinator provides relevant paths in `docs/references/` for on-demand file reading instead of full-catalog preview injection.
+1. **Given** a high-ambiguity or system-level prompt, **When** L0 inspects the goal, **Then** it selects Route A, creates `docs/gaps.md` and `docs/target-parity.md`, identifies unmentioned edge cases, and arranges milestones by topological dependency.
+2. **Given** a narrow bug fix or specific 1-file modification, **When** L0 inspects the goal, **Then** it selects Route B, skips heavy spec generation, and dispatches directly to an L1 TDD worktree.
 
 ---
 
-### User Story 3 - Task Intake & Worktree Isolation (Priority: P2)
+### User Story 3 - Unified F2P Lifecycle & Early Pruning Gates (Priority: P1) 🎯 MVP
 
-As a developer initiating a complex task or issue, I want the system to automatically isolate the task inside a dedicated Git worktree (`.worktrees/<branch-name>`), so that execution runs without polluting the main working directory or interfering with other concurrent sessions.
+As an orchestrator evaluating candidate solutions, I want all tasks (bug fixes and new features) to follow a single Fail-to-Pass (F2P) verification cycle with early pruning gates (`judge-repro`, `judge-plan`, `judge-pr`), so that flawed plans and shallow symptom patches are rejected immediately before burning code-generation tokens.
 
-**Why this priority**: Prevents destructive accidental changes, git conflict locks, and context bleed across concurrent task branches.
-
-**Independent Test**: Run `.agent/scripts/run-task.sh <task-id>`; verify a new branch and worktree under `.worktrees/` is checked out with project dependencies ready.
+**Why this priority**: Prevents agent hallucinations, shallow monkey-patching, and regression by enforcing proof of failure before code is written.
 
 **Acceptance Scenarios**:
-1. **Given** a new task brief or issue, **When** task execution begins, **Then** the system creates a worktree under `.worktrees/<branch-name>`, configures git exclusions, and establishes test baselines.
-2. **Given** an existing worktree, **When** execution settles or is aborted, **Then** the worktree is cleanly pruned or committed as a clean PR branch.
+1. **Given** a bug report, **When** L1 begins execution, **Then** `judge-repro` checks that a minimal test reproduces the reported defect and exits with code 1 (`RED`).
+2. **Given** a candidate plan, **When** evaluated by `judge-plan`, **Then** the plan is checked against CodePath rubrics (`grounded-cause`, `bounded-scope`, `startable`, `decisive-test`); if rejected, execution halts and L1 must revise the plan.
+3. **Given** code implementation complete, **When** evaluated by `judge-pr`, **Then** `pr-precheck` verifies `plan-fidelity`, clean diffs (no debug prints or dead code), and verifies that all existing test suites remain green (`P2P`).
+4. **Given** an unexpected blocking bug encountered during feature implementation, **Then** L1 is permitted to write an isolated repro test, fix the prerequisite, and document the deviation in the PR notes without failing scope checks.
 
 ---
 
-### User Story 4 - Independent Dual-Gate Subagent Review & Circuit Breaker (Priority: P2)
+### User Story 4 - Dynamic Project Scaffolding & Archetype Routing (Priority: P2)
 
-As an engineering lead, I want every completed task evaluated by an independent, read-only reviewer subagent (`sdd-reviewer`) verifying spec compliance and code quality before committing, bounded by a 3-round retry circuit breaker, so that bad code never reaches the main branch and agents do not loop indefinitely.
+As a developer initializing a new project (`workflow init [archetype]`), I want the engine to dynamically scaffold the appropriate workflow gates, subagents, and templates depending on whether the project is **SWE** (code compilers, TDD, PR checks) or **Non-SWE** (e.g., Game Design GDD, visual judges, math balancers).
 
-**Why this priority**: Guarantees code correctness, catches regression early, and prevents infinite ping-pong loops between implementer and reviewer.
-
-**Independent Test**: Provide an implementation with a failing edge case or unauthorized file edit; verify `sdd-reviewer` rejects with exact `file_path:line_number` evidence and triggers an implementer fix cycle up to 3 times before halting for human intervention.
+**Why this priority**: Expands the workflow engine beyond typical web development to game design, creative writing, and research tasks.
 
 **Acceptance Scenarios**:
-1. **Given** a completed task brief, **When** `sdd-reviewer` audits the diff, **Then** it evaluates Gate 1 (Spec Compliance) and Gate 2 (Code Quality), outputting `APPROVED` or structured `REVISE` findings.
-2. **Given** 3 consecutive failed review rounds, **When** the circuit breaker trips, **Then** the system pauses execution and surfaces a single structured question for user escalation.
+1. **Given** `workflow init swe`, **Then** GitHub Spec Kit (`.specify/`), CodePath judges (`plan-check`, `pr-precheck`), and `sdd-worker` configs are scaffolded.
+2. **Given** `workflow init game-design`, **Then** Game Design Document (GDD) trackers, asset validation scripts, visual screenshot judges, and non-code subagents (`game-designer`, `lore-keeper`) are scaffolded.
 
 ---
 
-### User Story 5 - Compound Markdown Memory & Solution Recall (Priority: P3)
+### User Story 5 - Self-Adaptive Triad & Two-Phase Adaptation Boundary (Priority: P2)
 
-As a continuous AI development engine, I want verified root causes and non-obvious fixes automatically documented in `docs/solutions/<topic>.md` and consulted during future planning, so that future sessions never repeat identical mistakes.
+As a long-running agent platform, I want memory (Hindsight), harness scaffolding (Harness² on DSH), and L2 subagents to adapt continuously based on empirical evidence, while keeping runtime strictly locked during active task execution to prevent self-degrading shortcut exploits.
 
-**Why this priority**: Builds long-term institutional codebase knowledge that persists across sessions and across different agent harnesses without requiring proprietary vector databases.
-
-**Independent Test**: Resolve a non-trivial bug; verify a solution document is generated in `docs/solutions/`. In a subsequent session, verify that the planner queries `docs/solutions/` and incorporates known fixes into its plan.
+**Why this priority**: Enables agents to become smarter over time across sessions while preventing models from relaxing their own grading rubrics.
 
 **Acceptance Scenarios**:
-1. **Given** a successfully resolved and verified debugging session, **When** the task closes, **Then** `docs/solutions/<topic>.md` is created with trigger, root cause, verified fix, and key file anchors.
-2. **Given** existing solution notes in `docs/solutions/`, **When** an agent plans work in a related subsystem, **Then** it reads the solution note and applies the verified pattern.
+1. **Given** an active milestone execution, **When** L1 is running, **Then** all grading rubrics (`rubric.md`), project constitutions, and gate criteria are **Immutable and Read-Only**. L1 writes failure telemetry to `.agent/memory/inbox/<session>.json`.
+2. **Given** milestone completion or an idle trigger, **When** running a "Dreaming" session (`workflow dream`), **Then** an offline review subagent ingests the inbox, deduplicates findings, and distills verified causal lessons into `docs/solutions/<topic>.md`.
+3. **Given** repeated execution churn on DSH, **When** Harness² Propose-Probe-Compose runs, **Then** candidate prompt/tool configurations are evaluated on parallel worktrees, and winning invariant configurations are merged into DSH presets.
 
 ---
 
-### User Story 6 - Two-Tier Skill Catalog & Workspace Localization (Priority: P1) 🎯
-
-As a developer working across multiple repositories, I want a central catalog of 40+ skills in `~/.agents/skills/` that remains dormant globally, and the ability to inherit specific skills into my active workspace via symlinks, so that unrelated workspaces suffer zero context bloat.
-
-**Why this priority**: Eliminates the global skill dump across all projects while keeping an organized library on the machine.
-
-**Independent Test**: Run `harness skill add <name>`; verify the symlink `.agents/skills/<name> -> ~/.agents/skills/<name>` is created and discovered by all harnesses without copying files.
-
-**Acceptance Scenarios**:
-1. **Given** 40+ skills in `~/.agents/skills/`, **When** an unlinked workspace is opened, **Then** 0 global skill preview tokens are injected.
-2. **Given** a project requiring `impeccable`, **When** running `harness skill add impeccable`, **Then** a symlink is created in `.agents/skills/impeccable`.
-3. **Given** `harness skill remove impeccable`, **Then** only the symlink is removed; the catalog source file remains untouched.
-4. **Given** `harness skill create <name>`, **Then** a project-private skill is scaffolded in `.agents/skills/<name>/SKILL.md` and strictly prohibited from exporting to global.
-
----
-
-### User Story 7 - Independent Per-Project MCP Scoping & Dormancy (Priority: P1) 🎯
-
-As an engineer using heavy MCP servers (e.g. `rea` with 100+ tools), I want heavy servers kept out of global config, declared in local `.mcp.json`, and togglable per workspace without cross-project interference.
-
-**Why this priority**: Prevents massive 20,000+ token floods from heavy MCP servers across unrelated projects and eliminates global shadowing conflicts.
-
-**Independent Test**: Toggle an MCP server in Project A; verify Project B's `.mcp.json` remains completely unaffected.
-
-**Acceptance Scenarios**:
-1. **Given** `rea` configured in Project A and Project B, **When** Project A sets `"enabled": false` via `harness mcp off rea`, **Then** Project A injects 0 `rea` tools while Project B continues running `rea` normally.
-2. **Given** `harness mcp add <name> <command>`, **Then** the server is registered in `~/.agents/catalog/mcps.json` and activated in the local project's `.mcp.json`.
-3. **Given** `harness clean-global`, **Then** heavy servers in `~/.zcode/cli/config.json` are sanitized to dormant state so global never shadows workspace overrides.
-
----
-
-### User Story 8 - 9Router-Style Zero-Prefix CLI & Interactive REPL (Priority: P1) 🎯
-
-As a vibe coder, I want a global CLI command `harness` (or short alias `agn`) installed in `$PATH` that launches an interactive shell where I can type commands directly without path prefixes (`./.agent/scripts/...`).
-
-**Why this priority**: Drastically lowers cognitive load and command friction for developers and coding agents.
-
-**Independent Test**: Type `harness start` in any directory; verify interactive prompt `[harness: <workspace>] > ` accepts zero-prefix commands.
-
-**Acceptance Scenarios**:
-1. **Given** terminal anywhere on the machine, **When** typing `harness start` (or bare `harness`), **Then** an interactive REPL opens with prompt `[harness: <workspace>] > `.
-2. **Given** inside the REPL, **When** typing `status`, `catalog`, `skill add <name>`, `mcp on <name>`, `doctor`, `ui`, `exit`, **Then** commands execute with zero prefix.
-3. **Given** headless automation, **When** running `harness status` or `agn mcp off rea`, **Then** commands execute directly with exit code 0.
-
----
-
-### User Story 9 - Zero-AI-Slop Vibe Coder Web Dashboard (Priority: P2)
-
-As a developer who prefers visual controls, I want a local dashboard served on port 20888 with clean typography, token meters, and instant toggle switches.
-
-**Why this priority**: Gives developers a 1-click visual control center without bloated AI-slop graphics or cloud subscriptions.
-
-**Independent Test**: Run `harness ui`; verify web interface loads at `http://localhost:20888`, displays active token meters, and toggles update disk state immediately.
-
----
-
-### User Story 10 - Zero-Config Project Scaffolding & Edge Cases (Priority: P2)
-
-As an engineer starting a new repository, I want `harness init` to scaffold the complete 3-layer cross-harness architecture in 1 second.
-
-**Acceptance Scenarios**:
-1. **Given** an empty directory, **When** running `harness init`, **Then** `.agents/skills`, `.agent/agents`, adapter symlinks for Claude, ZCode, Cursor, DSH, Codex, and `.mcp.json` are generated automatically.
-2. **Given** broken or dangling symlinks, **When** running `harness heal` (or `auto-heal-symlinks.sh`), **Then** missing links are reconciled cleanly.
-3. **Given** running from nested subdirectories, **When** invoking `harness`, **Then** the workspace root is auto-detected by ascending parent directories.
-
----
-
-### User Story 11 - Impeccable Design System Integration (Priority: P2)
-
-As a frontend designer/developer, I want `pbakaus/impeccable` available in the central catalog (`~/.agents/skills/impeccable`) so any workspace can activate it via `harness skill add impeccable`.
-
----
-
-### User Story 12 - 100% Strongly-Typed TypeScript Architecture (Priority: P1) 🎯
-
-As a maintainer of this tool, I want the codebase written in clean, strongly-typed TypeScript executed natively via Bun, eliminating runtime `TypeError` and `undefined` bugs.
-
-**Acceptance Scenarios**:
-1. Core modules in `.agent/src/*.ts` have zero `any` types and stay < 200 lines per file.
-2. Test suite in `tests/*.test.ts` runs natively via `bun test` in < 50ms with 100% pass rate.
-
----
-
-## Requirements *(mandatory)*
+## 3. Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST maintain `.agents/skills/` (project) and `~/.agents/skills/` (global) as the sole canonical source of truth for all agent skills.
-- **FR-002**: Adapter folders (`.claude/skills`, `.zcode/skills`, `.cursor/skills`, `.dsh/skills`) MUST be directory symlinks pointing to `.agents/skills/`.
-- **FR-003**: System MUST strip the `Skill` tool from `sdd-worker` subagents using `disallowedTools: Skill` to protect against token pollution.
-- **FR-004**: System MUST maintain an independent, read-only reviewer subagent (`sdd-reviewer`) with `Edit`, `Write`, `Skill`, and `Agent` tools disallowed.
-- **FR-005**: All code modifications MUST adhere to Test-Driven Development (TDD) with tests written, failing (RED), and passing (GREEN) prior to review approval.
-- **FR-006**: Reviewer subagents MUST enforce dual-gate criteria (Spec Compliance + Code Quality) with evidence citations formatted as `file_path:line_number`.
-- **FR-007**: System MUST provide a PreToolUse guard hook (`guard-skills.py`) intercepting unauthorized writes to adapter directories and exiting with status 2 to abort the operation.
-- **FR-008**: System MUST provide a SessionStart hook (`auto-heal-symlinks.sh`) repairing missing or broken symlinks on startup.
-- **FR-009**: System MUST support GitHub Spec Kit (`.specify/`) as the standard Spec-Driven Development framework for project constitution, specifications, plans, and tasks.
-- **FR-010**: System MUST enforce a 3-tier task routing hierarchy: Tier 1 (Direct TDD), Tier 2 (Spec Kit Bug Extension), Tier 3 (Spec Kit Feature SDD).
-- **FR-011**: System MUST provide 3-tier hybrid search (Prefix boost x10, Description keyword boost x3, Typo tolerance) powered by offline MiniSearch in the Web UI dashboard.
-- **FR-011**: System MUST provide automated worktree provisioning under `.worktrees/<branch-name>` for multi-task branches.
-- **FR-012**: System MUST capture verified fixes in `docs/solutions/<topic>.md` and require planners to consult prior notes before executing tasks.
-- **FR-013**: System MUST provide a global CLI (`harness` / `agn`) with an interactive REPL shell (`harness start`) and headless direct execution.
-- **FR-014**: System MUST provide a Two-Tier Catalog architecture where global catalog (`~/.agents/skills/` and `~/.agents/catalog/mcps.json`) remains dormant by default.
-- **FR-015**: System MUST support workspace skill inheritance via symlinks (`harness skill add <name>`) and safe unlinking (`harness skill remove <name>`).
-- **FR-016**: System MUST support project-private skill creation (`harness skill create <name>`) in `.agents/skills/<name>/SKILL.md` isolated from global.
-- **FR-017**: System MUST support per-workspace MCP scoping and dormancy (`harness mcp on/off <server>`) using `.mcp.json`.
-- **FR-018**: System MUST provide `harness init` to scaffold the 3-layer architecture for new repositories in 1 second.
-- **FR-019**: System MUST provide a zero-slop local Web UI dashboard (`harness ui`) on port 20888 with real-time token metrics and toggle switches.
-- **FR-020**: System MUST implement all CLI engine components in modular TypeScript (<200 lines per file) tested via `bun test`.
+- **FR-001**: System MUST enforce a maximum subagent recursion depth of 2 (Level 0 $\to$ Level 1 $\to$ Level 2).
+- **FR-002**: All Level 2 leaf helper subagents MUST have `Agent` and `Skill` stripped (`disallowedTools: [Agent, Skill]`).
+- **FR-003**: System MUST execute all Level 1 milestone implementations in isolated Git worktrees (`.worktrees/<feature>-<lane>`).
+- **FR-004**: Level 0 MUST include a Cognitive Intent Router classifying input goals into Route A (CEO/PM Broad Discovery) or Route B (Fast-Track Execution).
+- **FR-005**: All code modifications MUST satisfy the Unified F2P Lifecycle: verifiable RED test before implementation, verifiable GREEN after implementation, and 100% PASS on existing regression suites.
+- **FR-006**: System MUST enforce early pruning gates:
+  - Gate 1: `judge-repro` (Exit code $\ne 0$ proving defect/new contract).
+  - Gate 2: `judge-plan` (Validates `grounded-cause`, `bounded-scope`, `startable`, `decisive-test`).
+  - Gate 3: `judge-pr` (Validates `plan-fidelity`, `clean-diff`, zero review debris).
+- **FR-007**: System MUST keep evaluation rubrics and constitutions immutable during task execution; self-adaptation is restricted to offline dreaming sessions.
+- **FR-008**: System MUST support dynamic archetype scaffolding for SWE and Non-SWE (e.g. Game Design).
+- **FR-009**: System MUST integrate Hindsight memory via MCP for session recording and causal retrieval.
+- **FR-010**: System MUST integrate Google Harness² / `@xisnn/harness2-dsh` for Propose-Probe-Compose scaffolding adaptation on DeepSeek Harness.
+- **FR-011**: System MUST support plug-and-play L2 subagent installation from external repositories without altering L0/L1 core contracts.
+- **FR-012**: System MUST maintain `.agents/skills` (local) and `~/.agents/skills` (catalog) with single directory symlinks and zero-token global dormancy.
 
 ---
 
-## Edge Cases
+## 4. Success Criteria *(measurable)*
 
-- **Windows or filesystems without symlink support**: `auto-heal-symlinks.sh` falls back to junction points or warns with actionable instructions.
-- **Reviewer-Implementer stalemate**: The 3-round circuit breaker halts the loop, aggregates previous findings, and asks the human user for a definitive ruling.
-- **Empty or missing tests**: `sdd-reviewer` rejects any feature implementation that lacks automated test suites or execution logs.
-- **Global Shadowing Conflict**: When a server is defined in global ZCode config as enabled, `harness clean-global` resets it to dormant so local workspace configs take effect.
-- **Subdirectory Execution**: Running `harness` from deeply nested child directories automatically resolves the nearest project root.
-- **Port Collision**: If port 20888 is occupied, the dashboard server automatically probes the next available port.
-
----
-
-## Success Criteria *(measurable)*
-
-- **SC-001**: 100% elimination of duplicate skill files across all installed coding harnesses in the project.
-- **SC-002**: 7,000+ token reduction per subagent turn for `sdd-worker` compared to default subagent dispatch.
-- **SC-003**: 0% regression rate on tasks passing the dual-gate `sdd-reviewer` verification pass.
-- **SC-004**: 100% compliance with Spec Kit standards (`constitution.md`, `spec.md`, `plan.md`, `tasks.md`).
+- **SC-001**: Zero infinite recursion loops (100% compliance with Max Depth = 2).
+- **SC-002**: $\ge 80\%$ reduction in wasted implementation tokens by pruning flawed plans at Gate 1/2 instead of PR review.
+- **SC-003**: 0% regression rate on tasks passing Gate 3 (`judge-pr`).
+- **SC-004**: Complete portability across DeepSeek Harness (DSH), Claude Code, ZCode, Cursor, and Codex CLI.

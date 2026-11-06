@@ -1,9 +1,10 @@
+import './isolated-home';
 import { describe, test, expect } from 'bun:test';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { findWorkspaceRoot, getWorkspacePaths, ensureWorkspaceDirs, initWorkspace } from '../.agent/src/workspace';
+const { findWorkspaceRoot, getWorkspacePaths, ensureWorkspaceDirs, initWorkspace } = await import('../.agent/src/workspace');
 
 describe('workspace module', () => {
   test('findWorkspaceRoot: discovers root with .git / .agents', async () => {
@@ -67,7 +68,7 @@ describe('workspace module', () => {
     const dshAgents = path.join(tmpDir, '.dsh', 'agents');
 
     expect((await fsp.lstat(claudeSkills)).isSymbolicLink()).toBe(true);
-    expect((await fsp.lstat(zcodeSkills)).isSymbolicLink()).toBe(true);
+    expect(await fsp.lstat(zcodeSkills).catch(() => null)).toBeNull();
     expect((await fsp.lstat(dshAgents)).isSymbolicLink()).toBe(true);
 
     await fsp.rm(tmpDir, { recursive: true, force: true });

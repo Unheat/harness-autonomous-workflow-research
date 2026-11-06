@@ -1,5 +1,6 @@
+import './isolated-home';
 import { describe, test, expect } from 'bun:test';
-import { getUnifiedResources, normalizeSkill, normalizeMcp } from '../.agent/src/resources';
+const { getUnifiedResources, normalizeSkill, normalizeMcp } = await import('../.agent/src/resources');
 
 describe('Unified Resource Abstraction (Skills & MCPs)', () => {
   test('normalizeSkill: maps EffectiveSkillInfo into UnifiedResource', () => {

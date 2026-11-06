@@ -1,52 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Self-healing hook: Ensures all harness skill/agent paths are symlinks to canonical .agents and .agent
+# Keep this adapter policy aligned with ADAPTER_SYMLINKS in src/workspace.ts.
+# Never migrate physical resources implicitly: they may be private or conflicting.
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 cd "$PROJECT_ROOT"
-
-# 1. Canonical directories
 mkdir -p .agents/skills .agent/agents
 
-# 2. Check and heal skills symlinks
-for harness in .claude .zcode .cursor .dsh; do
-    mkdir -p "$harness"
-    if [ -d "$harness/skills" ] && [ ! -L "$harness/skills" ]; then
-        echo "[Auto-Heal] Real folder found at $harness/skills. Migrating contents to .agents/skills/..."
-        cp -rn "$harness/skills/"* .agents/skills/ 2>/dev/null || true
-        rm -rf "$harness/skills"
-        ln -s ../.agents/skills "$harness/skills"
-        echo "[Auto-Heal] Restored symlink $harness/skills -> ../.agents/skills"
-    elif [ ! -L "$harness/skills" ] || [ ! -e "$harness/skills" ]; then
-        rm -f "$harness/skills"
-        ln -s ../.agents/skills "$harness/skills"
-        echo "[Auto-Heal] Reconciled symlink $harness/skills -> ../.agents/skills"
+repair_link() {
+    local link="$1" target="$2"
+    mkdir -p "$(dirname "$link")"
+    if [ -L "$link" ]; then
+        if [ "$(readlink "$link")" = "$target" ]; then
+            return
+        fi
+        rm -- "$link"
+    elif [ -e "$link" ]; then
+        printf '[Auto-Heal] Preserved physical adapter %s (manual migration required)\n' "$link"
+        return
     fi
-done
+    ln -s "$target" "$link"
+    printf '[Auto-Heal] Reconciled %s -> %s\n' "$link" "$target"
+}
 
-# 3. Check and heal agent symlinks
-for harness in .claude .zcode .codex .opencode .dsh; do
-    mkdir -p "$harness"
-    if [ -d "$harness/agents" ] && [ ! -L "$harness/agents" ]; then
-        echo "[Auto-Heal] Real folder found at $harness/agents. Migrating to .agent/agents/..."
-        cp -rn "$harness/agents/"* .agent/agents/ 2>/dev/null || true
-        rm -rf "$harness/agents"
-        ln -s ../.agent/agents "$harness/agents"
-        echo "[Auto-Heal] Restored symlink $harness/agents -> ../.agent/agents"
-    elif [ ! -L "$harness/agents" ] || [ ! -e "$harness/agents" ]; then
-        rm -f "$harness/agents"
-        ln -s ../.agent/agents "$harness/agents"
-        echo "[Auto-Heal] Reconciled symlink $harness/agents -> ../.agent/agents"
-    fi
+for harness in .claude .cursor .dsh .codex .opencode; do
+    repair_link "$harness/skills" ../.agents/skills
 done
-
-# 4. Guarantee .agents/mcp.json -> ../.mcp.json compatibility symlink
-if [ -f ".mcp.json" ]; then
-    if [ ! -L ".agents/mcp.json" ] || [ ! -e ".agents/mcp.json" ]; then
-        rm -f ".agents/mcp.json"
-        ln -s ../.mcp.json ".agents/mcp.json"
-        echo "[Auto-Heal] Reconciled .agents/mcp.json -> ../.mcp.json"
-    fi
+for harness in .claude .zcode .cursor .codex .dsh .opencode; do
+    repair_link "$harness/agents" ../.agent/agents
+done
+if [ -f .mcp.json ]; then
+    for harness in .agents .cursor .dsh; do
+        repair_link "$harness/mcp.json" ../.mcp.json
+    done
 fi
 
-exit 0
+# Remove only the known duplicate adapter, never unrelated ZCode skill links.
+if [ -L .zcode/skills ]; then
+    target="$(readlink .zcode/skills)"
+    if [ "$target" = ../.agents/skills ] || [ "$target" = "$PROJECT_ROOT/.agents/skills" ]; then
+        rm -- .zcode/skills
+        printf '[Auto-Heal] Pruned redundant .zcode/skills adapter\n'
+    fi
+fi

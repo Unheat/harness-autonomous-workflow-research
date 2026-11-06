@@ -80,13 +80,6 @@ export async function addSkill(workspaceRoot: string, rawSkillName: string): Pro
     return { success: false, message: `Skill "${skillName}" is already active in this workspace.` };
   }
 
-  if (isSkillActiveGlobally(skillName)) {
-    return {
-      success: true,
-      message: `Skill "${skillName}" is already active machine-wide via Global scope. No local symlink created (avoids duplicate prompt injection).`
-    };
-  }
-
   if (fs.existsSync(dormantTarget)) {
     try {
       await fsp.rename(dormantTarget, localTarget);
@@ -94,6 +87,13 @@ export async function addSkill(workspaceRoot: string, rawSkillName: string): Pro
     } catch (err: any) {
       return { success: false, message: `Failed to restore dormant skill: ${err.message}` };
     }
+  }
+
+  if (isSkillActiveGlobally(skillName)) {
+    return {
+      success: true,
+      message: `Skill "${skillName}" is already active machine-wide via Global scope. No local symlink created (avoids duplicate prompt injection).`
+    };
   }
 
   if (fs.existsSync(catalogSource)) {

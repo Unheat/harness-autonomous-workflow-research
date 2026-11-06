@@ -1,10 +1,11 @@
+import './isolated-home';
 import { describe, test, expect } from 'bun:test';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { listGlobalActiveSkills, getEffectiveSkillsList } from '../.agent/src/skills-global';
-import { createLocalSkill, removeSkill, addSkill } from '../.agent/src/skills';
+const { listGlobalActiveSkills, getEffectiveSkillsList } = await import('../.agent/src/skills-global');
+const { createLocalSkill, removeSkill, addSkill } = await import('../.agent/src/skills');
 
 describe('Skills Global & Scope Engine', () => {
   test('listGlobalActiveSkills: discovers global user skills', async () => {
