@@ -2,15 +2,18 @@
   "mcpServers": {
     "codebase-memory": {
       "command": "/Users/dangtruongan/.local/bin/codebase-memory-mcp",
-      "enabled": true
+      "enabled": false,
+      "disabled": true
     },
     "hound": {
       "command": "/opt/anaconda3/bin/hound",
-      "enabled": false
+      "enabled": false,
+      "disabled": true
     },
     "gitmcp": {
       "command": "/Users/dangtruongan/.local/bin/gitmcp",
-      "enabled": true
+      "enabled": false,
+      "disabled": true
     },
     "rea": {
       "command": "/Users/dangtruongan/.nvm/versions/node/v22.23.4/bin/rea",
@@ -21,16 +24,19 @@
         "REA_MCP_INPUT_SCHEMA_PROFILE": "compact",
         "REA_MCP_OUTPUT_SCHEMA_PROFILE": "off"
       },
-      "enabled": false
+      "enabled": false,
+      "disabled": true
     },
     "search2ai": {
       "command": "/Users/dangtruongan/.local/bin/search2ai-mcp",
-      "enabled": true
+      "enabled": false,
+      "disabled": true
     },
     "local-pdf-rag": {
       "command": "/Users/dangtruongan/.local/share/local-pdf-rag-mcp/.venv/bin/local-pdf-rag-mcp",
       "args": [],
-      "enabled": false
+      "enabled": false,
+      "disabled": true
     }
   }
 }

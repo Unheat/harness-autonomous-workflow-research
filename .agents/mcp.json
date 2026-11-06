@@ -2,7 +2,7 @@
   "mcpServers": {
     "codebase-memory": {
       "command": "/Users/dangtruongan/.local/bin/codebase-memory-mcp",
-      "enabled": true
+      "enabled": false
     },
     "hound": {
       "command": "/opt/anaconda3/bin/hound",
@@ -10,7 +10,7 @@
     },
     "gitmcp": {
       "command": "/Users/dangtruongan/.local/bin/gitmcp",
-      "enabled": true
+      "enabled": false
     },
     "rea": {
       "command": "/Users/dangtruongan/.nvm/versions/node/v22.23.4/bin/rea",
@@ -25,7 +25,7 @@
     },
     "search2ai": {
       "command": "/Users/dangtruongan/.local/bin/search2ai-mcp",
-      "enabled": true
+      "enabled": false
     },
     "local-pdf-rag": {
       "command": "/Users/dangtruongan/.local/share/local-pdf-rag-mcp/.venv/bin/local-pdf-rag-mcp",

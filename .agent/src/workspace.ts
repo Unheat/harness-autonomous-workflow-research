@@ -27,8 +27,7 @@ export const ADAPTER_SYMLINKS: AdapterSymlinkDef[] = [
 
   // MCP configuration adapters
   { link: '.agents/mcp.json', target: '../.mcp.json' },
-  { link: '.cursor/mcp.json', target: '../.mcp.json' },
-  { link: '.dsh/mcp.json', target: '../.mcp.json' }
+  { link: '.cursor/mcp.json', target: '../.mcp.json' }
 ];
 
 /** Only repair links; physical folders and files require an explicit migration. */

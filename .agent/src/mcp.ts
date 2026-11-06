@@ -72,6 +72,7 @@ export async function enableMcp(workspaceRoot: string, serverName: string): Prom
 
   if (serverName in localServers) {
     localServers[serverName].enabled = true;
+    delete (localServers[serverName] as any).disabled;
     await saveLocalMcps(workspaceRoot, localServers);
     return { success: true, message: `Enabled MCP server "${serverName}" in this workspace.` };
   }
@@ -84,6 +85,7 @@ export async function enableMcp(workspaceRoot: string, serverName: string): Prom
   const serverConfig: McpServerConfig = { ...catalog[serverName] };
   delete serverConfig.description; // Keep local JSON lean
   serverConfig.enabled = true;
+  delete (serverConfig as any).disabled;
 
   localServers[serverName] = serverConfig;
   await saveLocalMcps(workspaceRoot, localServers);
@@ -91,8 +93,8 @@ export async function enableMcp(workspaceRoot: string, serverName: string): Prom
 }
 
 /**
- * Sets an MCP server to dormant (enabled: false) locally.
- * Prevents token injection while preserving configuration.
+ * Sets an MCP server to dormant (enabled: false & disabled: true) locally.
+ * Prevents token injection across both Claude/Cursor and DSH while preserving configuration.
  */
 export async function disableMcp(workspaceRoot: string, serverName: string): Promise<OperationResult> {
   if (!isValidName(serverName)) {
@@ -106,6 +108,7 @@ export async function disableMcp(workspaceRoot: string, serverName: string): Pro
   }
 
   localServers[serverName].enabled = false;
+  (localServers[serverName] as any).disabled = true;
   await saveLocalMcps(workspaceRoot, localServers);
   return { success: true, message: `Disabled MCP server "${serverName}" (set to enabled: false, 0 tokens injected).` };
 }
