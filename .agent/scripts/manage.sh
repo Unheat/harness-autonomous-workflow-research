@@ -30,7 +30,7 @@ for h in .claude .cursor .dsh .codex .opencode; do
     fi
 done
 echo "ℹ️  .zcode natively scans .agents/skills (no duplicate adapter required)"
-for h in .agents .cursor .dsh; do
+for h in .agents .cursor; do
     if [ -L "$h/mcp.json" ] || [ -f "$h/mcp.json" ]; then
         echo "✅ $h/mcp.json is active"
     else

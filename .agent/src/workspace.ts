@@ -61,6 +61,18 @@ export async function reconcileWorkspaceAdapters(root: string): Promise<string[]
     await fsp.unlink(zcodeSkills);
     actions.push('Pruned redundant .zcode/skills adapter (native .agents/skills discovery)');
   }
+
+  // Active safety guard: prune .dsh/mcp.json if present to prevent DSH toolbox from double-mounting raw MCP tools
+  const dshMcp = path.join(root, '.dsh', 'mcp.json');
+  const dshMcpStat = await fsp.lstat(dshMcp).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === 'ENOENT') return null;
+    throw err;
+  });
+  if (dshMcpStat) {
+    await fsp.unlink(dshMcp);
+    actions.push('Pruned poisonous .dsh/mcp.json adapter (prevents raw MCP double-mount in DSH)');
+  }
+
   return actions;
 }
 

@@ -30,9 +30,15 @@ for harness in .claude .zcode .cursor .codex .dsh .opencode; do
     repair_link "$harness/agents" ../.agent/agents
 done
 if [ -f .mcp.json ]; then
-    for harness in .agents .cursor .dsh; do
+    for harness in .agents .cursor; do
         repair_link "$harness/mcp.json" ../.mcp.json
     done
+fi
+
+# Remove poisonous .dsh/mcp.json adapter (prevents raw MCP double-mount in DSH)
+if [ -e .dsh/mcp.json ] || [ -L .dsh/mcp.json ]; then
+    rm -f -- .dsh/mcp.json
+    printf '[Auto-Heal] Pruned poisonous .dsh/mcp.json adapter\n'
 fi
 
 # Remove only the known duplicate adapter, never unrelated ZCode skill links.

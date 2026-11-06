@@ -98,7 +98,16 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     } catch {}
   }
 
-  // 4. Audit subagent token shields
+  // 4. Audit poisonous adapters (.dsh/mcp.json)
+  const dshMcp = path.join(root, '.dsh', 'mcp.json');
+  if (fs.existsSync(dshMcp)) {
+    issues.push({
+      severity: 'error',
+      message: 'Found poisonous adapter .dsh/mcp.json! Causes DSH toolbox to bypass mcptoon and double-mount raw MCP tools. Run `harness heal` to prune.'
+    });
+  }
+
+  // 5. Audit subagent token shields
   const subagentsDir = path.join(root, '.agent', 'agents');
   if (fs.existsSync(subagentsDir)) {
     try {
