@@ -63,5 +63,14 @@ if git grep -n "^<<<<<<< " -- ':!*.test.*' ':!*.json' ':!*.md' 2>/dev/null; then
   exit 1
 fi
 
+# 3. Secret Scanning Gate (Block exposed API keys, tokens, and private credentials)
+SECRET_MATCH=$(git grep -E -I -n "(sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{50,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|DSA|OPENSSH|PRIVATE) KEY-----)" -- ':!*.test.*' ':!*.json' ':!*.md' ':!specs/*' ':!docs/*' ':!package-lock.json' 2>/dev/null || true)
+if [ -n "$SECRET_MATCH" ]; then
+  echo "🚨 [swe-git-gate] BLOCKED: High-entropy secret / API key detected in tracked files!" >&2
+  echo "$SECRET_MATCH" | head -n 5 >&2
+  echo "   Move secrets to gitignored .env files or environment variables before pushing." >&2
+  exit 1
+fi
+
 echo "🚀 [swe-git-gate] All pre-push checks passed cleanly. Pushing to $remote..."
 exit 0
