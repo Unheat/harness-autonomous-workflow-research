@@ -1,3 +1,12 @@
+# Tool use
+online:
+- use `search2ai` instead of default search engine when search for online resource
+code tools:
+- use `codebase-memory-mcp` to find code by behavior when you don’t know its name, or to trace callers, callees, and dependencies across files.
+- use `ripgrep` (`rg`) for exact text or regex searches, such as known identifiers, error strings, and config keys.
+- avoid use plain `grep`, only use as a last fallback resort when neither can complete the search.
+
+actively use git, write, update, modify spec as a standard SWE, no need to wait for user prompt every step 
 # Project Agent Guidelines: Universal Workflow Engine
 
 This repository designs, standardizes, and implements the **Universal Cross-Harness Agentic Workflow Engine** (portable across Claude Code, ZCode, Cursor, Codex, DeepSeek Harness, OpenCode).
@@ -18,6 +27,13 @@ The developer of this project is a beginner learning full-stack, web extension, 
 - **Specification-Driven Development**: Major architecture changes or feature additions MUST be formalized in `specs/<NNN>-<feature>/` (`spec.md`, `plan.md`, `tasks.md`) following GitHub Spec Kit standards before/during execution.
 - **Roadmap & Milestones**: See `specs/001-universal-workflow-engine/tasks.md` and subsequent feature specs for rolling milestones.
 - **Mandatory Automated Tests**: All code modifications must include automated unit test coverage covering normal and edge cases before task completion.
+- **Test Like a Tester**: Derive assertions from requirements, not the implementation. Probe boundaries, invalid inputs, failure/recovery paths and regressions; use real behavior, not mock-only proof. Run applicable tests/lint/typechecks; report failures and skips, never weaken checks for green.
+- **Judge Evals**: Before claiming a judge calibrated, run at least 10 distinct cases per judge on a real model with the deployed prompt. Include valid, invalid, borderline and adversarial variants; measure false accepts and false rejects. Freeze labels before running; no cherry-picking easy wins. Smoke runs are not calibration.
+- **Prompt Craft**: Main-agent, subagent and skill prompts must be concise but complete: role, routing, constraints, evidence and output. Short, direct wording; no repeated rubrics, fluff or unsupported guarantees.
+- **Workflow Routing (`swe-workflow`)**:
+  - *Small/Trivial Tasks* (1-file typo, quick question, simple inspection): Execute immediately and conversationally using standard default harness tools without extra ceremony.
+  - *Non-Trivial Tasks* (feature implementation, multi-file bugfixes, PR deliverables): Invoke the `swe-workflow` skill. This activates the disciplined 4-step pipeline (F2P Red Test -> Plan & `judge-plan` -> Implementation -> `judge-pr` -> Draft PR) while keeping the lead engineer hands-on.
+- **Product vs. Development**: Develop this repository using the normal/default harness process; do not activate or require the SWE workflow being built here. Its main-agent/judge lifecycle is a product for other repositories, tested only in explicit evals/fixtures. Consumer projects keep their docs/skill conventions in their own `AGENTS.md`, not the reusable core.
 
 ---
 
@@ -26,7 +42,7 @@ The developer of this project is a beginner learning full-stack, web extension, 
 To keep context windows clean, detailed rules and specifications are loaded on demand:
 
 - **Active Architecture**:
-  Read `specs/006-paperclip-dsh-adaptive/plan.md` for Paperclip control-plane and DSH execution integration. Spec 001 and older design proposals are historical; do not treat proposed capabilities as implemented.
+  Read `specs/008-declarative-swe-workflow/plan.md` for the hands-on main-agent workflow redesign; Spec 007 covers resource management. Spec 006/Paperclip is historical. Distinguish proposed, prompt-defined, automated and live-verified capabilities.
 - **Unified 3-Tier Tooling Protocol**:
   All harness resources (`Skills`, `MCPs`, `Hooks`, `Plugins`, `Subagents`) follow the 3-Tier lifecycle (`Global`, `Project`, `Catalog`). Follow `harness-protocol` for installation, shadowing rules, and token-shielding protocols.
 - **Compound Memory**:
