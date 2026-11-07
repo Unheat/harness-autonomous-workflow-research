@@ -33,9 +33,9 @@ if [ ${#MISSING_TOOLS[@]} -gt 0 ]; then
 fi
 
 if command -v rg >/dev/null 2>&1; then
-  echo "  ✅ ripgrep (rg) detected (fast exact & regex search)."
+  echo "  ✅ Optional tool detected: ripgrep (rg)."
 else
-  echo "  ⚠️  ripgrep (rg) not found on PATH. Falling back to standard tools."
+  echo "  ℹ️  Optional tool ripgrep not present (using standard harness tools)."
 fi
 
 # 2. Register Subagents

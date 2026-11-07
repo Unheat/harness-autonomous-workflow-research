@@ -50,9 +50,9 @@ Before writing any code or tests, discover the local repository's invariants:
 
 1. **Proportional Discovery (Non-Mandatory Routing)**:
    Evaluate task complexity before spawning any subagent:
-   - **Direct Inspection (Default, 0 subagents)**: For narrow, localized tasks (1–2 known files, clear stack trace, familiar logic), inspect code directly using `Read` and `rg`. Zero token overhead.
-   - **Invoke `explore-code` (When tracing cross-file architecture)**: When the bug or feature spans unfamiliar modules, call the read-only `explore-code` subagent to trace callers/callees and dependency graphs using `codebase-memory-mcp` and `rg`.
-   - **Invoke `research` (When solving design uncertainty or industry standards)**: 90% of architectural patterns and optimizations are already solved by industry standards. If the task involves unfamiliar external libraries, framework upgrades, or non-trivial design decisions, call `research` to inspect local configs (`package.json`, lockfiles) and search online solutions using `search2ai` and `web_fetch`.
+   - **Direct Inspection (Default, 0 subagents)**: For narrow, localized tasks (1–2 known files, clear stack trace, familiar logic), inspect code directly using standard harness tools (`Read`, `Grep`, or project-preferred tools from `AGENTS.md`). Zero token overhead.
+   - **Invoke `explore-code` (When tracing cross-file architecture)**: When the bug or feature spans unfamiliar modules, call the read-only `explore-code` subagent to trace callers/callees and dependency graphs (inheriting any custom indexing/search tools from `AGENTS.md`, or falling back to standard `Read`/`Grep`).
+   - **Invoke `research` (When solving design uncertainty or industry standards)**: 90% of architectural patterns and optimizations are already solved by industry standards. If the task involves unfamiliar external libraries, framework upgrades, or non-trivial design decisions, call `research` to inspect local configs and search online solutions (inheriting any preferred search engine from `AGENTS.md`, or falling back to default web search/`web_fetch`).
 
 2. **Author the Reproducer (Anti-Cheat & Strict Invariants)**:
    - Prohibit trivial/obvious happy-path tests: Do not write tests asserting things already known to work or loose tautologies (`expect(res).toBeDefined()`, `expect(true).toBe(true)`).
