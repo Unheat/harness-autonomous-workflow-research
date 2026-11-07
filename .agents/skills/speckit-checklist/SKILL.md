@@ -6,8 +6,6 @@ compatibility: "Requires spec-kit project structure with .specify/ directory"
 metadata:
   author: "github-spec-kit"
   source: "templates/commands/checklist.md"
-user-invocable: false
-disable-model-invocation: true
 ---
 
 

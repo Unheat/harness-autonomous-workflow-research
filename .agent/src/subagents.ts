@@ -38,8 +38,11 @@ function parseFrontmatter(content: string): Record<string, any> {
 }
 
 function parseToolList(val: any): string[] {
-  if (Array.isArray(val)) return val.map(t => String(t).trim()).filter(Boolean);
-  if (typeof val === 'string') return val.split(',').map(t => t.trim()).filter(Boolean);
+  if (Array.isArray(val)) return val.map(t => String(t).trim().replace(/^[\[\]"']|[\[\]"']$/g, '')).filter(Boolean);
+  if (typeof val === 'string') {
+    const cleaned = val.replace(/^[\[\]]|[\[\]]$/g, '').trim();
+    return cleaned.split(',').map(t => t.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+  }
   return [];
 }
 
@@ -73,23 +76,48 @@ export async function parseSubagentFile(filePath: string, scope: 'global' | 'pro
 
 export async function listProjectSubagents(workspaceRoot: string): Promise<SubagentInfo[]> {
   const dir = path.join(workspaceRoot, '.agent', 'agents');
-  if (!fs.existsSync(dir)) return [];
-  const entries = await fsp.readdir(dir);
+  const dormantDir = path.join(workspaceRoot, '.agent', 'dormant-agents');
   const results: SubagentInfo[] = [];
 
-  for (const entry of entries.filter(e => e.endsWith('.md'))) {
-    const info = await parseSubagentFile(path.join(dir, entry), 'project');
-    if (info) results.push(info);
+  if (fs.existsSync(dir)) {
+    try {
+      const entries = await fsp.readdir(dir);
+      for (const entry of entries.filter(e => e.endsWith('.md'))) {
+        const info = await parseSubagentFile(path.join(dir, entry), 'project');
+        if (info) {
+          info.isActive = true;
+          info.isDormant = false;
+          results.push(info);
+        }
+      }
+    } catch {}
   }
+
+  if (fs.existsSync(dormantDir)) {
+    try {
+      const entries = await fsp.readdir(dormantDir);
+      for (const entry of entries.filter(e => e.endsWith('.md'))) {
+        const info = await parseSubagentFile(path.join(dormantDir, entry), 'project');
+        if (info) {
+          info.isActive = false;
+          info.isDormant = true;
+          results.push(info);
+        }
+      }
+    } catch {}
+  }
+
   return results.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function listGlobalSubagents(): Promise<SubagentInfo[]> {
+  const home = os.homedir();
   const dirs = [
-    path.join(os.homedir(), '.zcode', 'agents'),
-    path.join(os.homedir(), '.claude', 'agents'),
-    path.join(os.homedir(), '.agents', 'agents')
+    path.join(home, '.agents', 'agents'),
+    path.join(home, '.zcode', 'agents'),
+    path.join(home, '.claude', 'agents')
   ];
+  const dormantDir = path.join(home, '.agents', 'dormant-agents');
   const seen = new Set<string>();
   const results: SubagentInfo[] = [];
 
@@ -102,11 +130,30 @@ export async function listGlobalSubagents(): Promise<SubagentInfo[]> {
         const info = await parseSubagentFile(fullPath, 'global');
         if (info && !seen.has(info.name)) {
           seen.add(info.name);
+          info.isActive = true;
+          info.isDormant = false;
           results.push(info);
         }
       }
     } catch {}
   }
+
+  if (fs.existsSync(dormantDir)) {
+    try {
+      const entries = await fsp.readdir(dormantDir);
+      for (const entry of entries.filter(e => e.endsWith('.md'))) {
+        const fullPath = path.join(dormantDir, entry);
+        const info = await parseSubagentFile(fullPath, 'global');
+        if (info && !seen.has(info.name)) {
+          seen.add(info.name);
+          info.isActive = false;
+          info.isDormant = true;
+          results.push(info);
+        }
+      }
+    } catch {}
+  }
+
   return results.sort((a, b) => a.name.localeCompare(b.name));
 }
 

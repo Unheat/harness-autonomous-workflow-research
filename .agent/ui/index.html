@@ -15,18 +15,27 @@
       --text-muted: #888d96;
       --accent: #22c55e;
       --accent-dim: rgba(34, 197, 94, 0.12);
+      --purple: #c084fc;
+      --purple-dim: rgba(168, 85, 247, 0.15);
+      --cyan: #38bdf8;
+      --cyan-dim: rgba(56, 189, 248, 0.15);
       --warning: #f59e0b;
-      --warning-dim: rgba(245, 158, 11, 0.12);
+      --warning-dim: rgba(245, 158, 11, 0.15);
       --danger: #ef4444;
+      --danger-dim: rgba(239, 68, 68, 0.15);
       --radius: 8px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    html, body {
       background: var(--bg);
       color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    body {
       padding: 24px;
       max-width: 1200px;
       margin: 0 auto;
@@ -71,13 +80,12 @@
       font-size: 0.85rem;
       color: var(--text-muted);
     }
-    .workspace-info strong {
-      color: var(--text);
-    }
+    .workspace-info strong { color: var(--text); }
 
     .actions {
       display: flex;
       gap: 10px;
+      align-items: center;
     }
 
     button.btn {
@@ -90,6 +98,9 @@
       font-weight: 500;
       cursor: pointer;
       transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
     button.btn:hover {
       border-color: var(--border-focus);
@@ -101,9 +112,7 @@
       border-color: var(--text);
       font-weight: 600;
     }
-    button.btn-primary:hover {
-      background: #ffffff;
-    }
+    button.btn-primary:hover { background: #ffffff; }
 
     /* Metrics Grid */
     .metrics-bar {
@@ -119,26 +128,26 @@
       border-radius: var(--radius);
       padding: 16px;
     }
-
-    .metric-label {
-      font-size: 0.75rem;
+    .metric-title {
+      font-size: 0.72rem;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .metric-value {
+      font-size: 1.45rem;
+      font-weight: 700;
+      line-height: 1.1;
       margin-bottom: 4px;
     }
-
-    .metric-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-
-    .metric-sub {
+    .metric-desc {
       font-size: 0.75rem;
       color: var(--text-muted);
-      margin-top: 2px;
     }
+    .val-good { color: var(--accent); }
+    .val-warn { color: var(--warning); }
+    .val-cyan { color: var(--cyan); }
 
     /* Main Grid */
     .dashboard-grid {
@@ -160,28 +169,87 @@
     }
 
     .panel-header {
-      padding: 14px 18px;
+      padding: 12px 18px;
       border-bottom: 1px solid var(--border);
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       background: var(--surface-elevated);
+      min-width: 0;
     }
-
     .panel-title {
-      font-size: 0.95rem;
       font-weight: 600;
+      font-size: 0.95rem;
       display: flex;
       align-items: center;
       gap: 8px;
+      min-width: 0;
+    }
+
+    /* Tabs inside Panel Header */
+    .tab-group {
+      display: flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      background: var(--surface-elevated);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .tab-btn.active-global {
+      background: var(--purple-dim);
+      color: var(--purple);
+    }
+
+    .btn-sort {
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      background: var(--surface-elevated);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-sort:hover {
+      color: var(--text);
+      border-color: var(--border-focus);
+    }
+    .btn-sort.active {
+      color: var(--accent);
+      background: var(--accent-dim);
+      border-color: var(--accent);
     }
 
     .search-box {
       padding: 10px 18px;
       border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.15);
+      min-width: 0;
     }
     .search-box input {
       width: 100%;
+      min-width: 0;
       background: var(--bg);
       border: 1px solid var(--border);
       padding: 7px 12px;
@@ -190,9 +258,7 @@
       font-size: 0.85rem;
       outline: none;
     }
-    .search-box input:focus {
-      border-color: var(--border-focus);
-    }
+    .search-box input:focus { border-color: var(--border-focus); }
 
     .item-list {
       list-style: none;
@@ -201,12 +267,15 @@
     }
 
     .item-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-areas: "info actions";
+      gap: 12px 16px;
+      align-items: start;
       padding: 12px 18px;
       border-bottom: 1px solid var(--border);
       transition: background 0.1s ease;
+      min-width: 0;
     }
     .item-row:last-child { border-bottom: none; }
     .item-row:hover { background: rgba(255,255,255,0.02); }
@@ -215,7 +284,8 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
-      max-width: 75%;
+      min-width: 0;
+      grid-area: info;
     }
 
     .item-name {
@@ -224,6 +294,8 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
+      min-width: 0;
     }
 
     .item-meta {
@@ -232,6 +304,30 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      min-width: 0;
+    }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      grid-area: actions;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 600px) {
+      .item-row {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "info"
+          "actions";
+      }
+      .row-actions {
+        justify-content: flex-start;
+        width: 100%;
+      }
     }
 
     .badge {
@@ -240,10 +336,20 @@
       border-radius: 4px;
       font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.3px;
     }
     .badge-linked { background: var(--accent-dim); color: var(--accent); }
     .badge-local { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .badge-global { background: var(--purple-dim); color: var(--purple); }
     .badge-catalog { background: rgba(136, 141, 150, 0.15); color: var(--text-muted); }
+    .badge-shield { cursor: pointer; transition: transform 0.1s ease; }
+    .badge-shield:hover { transform: scale(1.05); }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
     /* Switch */
     .switch {
@@ -251,6 +357,7 @@
       display: inline-block;
       width: 38px;
       height: 22px;
+      flex-shrink: 0;
     }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
@@ -275,6 +382,90 @@
     input:checked + .slider { background-color: var(--accent); }
     input:checked + .slider:before { transform: translateX(16px); }
 
+    .switch-purple input:checked + .slider { background-color: var(--purple); }
+
+    /* Icon button */
+    .icon-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 4px 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.15s ease;
+    }
+    .icon-btn:hover {
+      color: var(--text);
+      border-color: var(--border);
+      background: var(--surface-elevated);
+    }
+    .icon-btn-danger:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+      background: var(--danger-dim);
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 90%;
+      max-width: 800px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-title { font-weight: 700; font-size: 1rem; }
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .editor-textarea {
+      width: 100%;
+      height: 380px;
+      background: #0d0f12;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #7dd3fc;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      padding: 12px;
+      line-height: 1.45;
+      resize: vertical;
+      outline: none;
+      white-space: pre;
+    }
+    .editor-textarea:focus { border-color: var(--cyan); }
+
     .toast {
       position: fixed;
       bottom: 24px;
@@ -287,7 +478,7 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       font-size: 0.85rem;
       display: none;
-      z-index: 100;
+      z-index: 2000;
     }
   </style>
   <script src="/minisearch.js"></script>
@@ -300,43 +491,51 @@
       <div class="workspace-info">Workspace: <strong id="ws-name">loading...</strong> <span id="ws-path"></span></div>
     </div>
     <div class="actions">
+      <button class="btn" onclick="openDoctorModal()">🩺 Doctor</button>
+      <button class="btn" onclick="openConfigModal('workspace-mcp')">📝 Edit Configs</button>
       <button class="btn" onclick="healSymlinks()">Heal Symlinks</button>
       <button class="btn btn-primary" onclick="loadStatus()">Refresh</button>
     </div>
   </header>
 
+  <!-- Metrics Grid -->
   <div class="metrics-bar">
     <div class="metric-card">
-      <div class="metric-label">Injected Context Token Load</div>
-      <div class="metric-value" id="val-injected" style="color: var(--accent);">~0</div>
-      <div class="metric-sub">Active skills + MCP tool schemas</div>
+      <div class="metric-title">Injected Context Token Load</div>
+      <div class="metric-value val-good" id="val-injected">~0 tokens</div>
+      <div class="metric-desc">Active skills + Direct MCP schemas</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">Prevented Context Bloat</div>
-      <div class="metric-value" id="val-saved" style="color: var(--accent);">+0</div>
-      <div class="metric-sub">Global skills safely isolated</div>
+      <div class="metric-title">Prevented Context Bloat</div>
+      <div class="metric-value val-good" id="val-saved">+0 tokens</div>
+      <div class="metric-desc">Global skills safely isolated</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">Active Workspace Tools</div>
-      <div class="metric-value"><span id="val-skills">0</span> <span style="font-size: 0.9rem; color: var(--text-muted);">skills</span> · <span id="val-mcps">0</span> <span style="font-size: 0.9rem; color: var(--text-muted);">mcps</span></div>
-      <div class="metric-sub">Configured for this directory</div>
+      <div class="metric-title">Active Workspace Tools</div>
+      <div class="metric-value"><span id="val-skills">0</span> <span style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);">skills</span> · <span id="val-mcps">0</span> <span style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);">mcps</span></div>
+      <div class="metric-desc">Configured for this directory</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">Machine Catalog Inventory</div>
-      <div class="metric-value"><span id="val-cat-skills">0</span> <span style="font-size: 0.9rem; color: var(--text-muted);">skills</span> · <span id="val-cat-mcps">0</span> <span style="font-size: 0.9rem; color: var(--text-muted);">mcps</span></div>
-      <div class="metric-sub">Available to activate on demand</div>
+      <div class="metric-title">Machine Catalog Inventory</div>
+      <div class="metric-value"><span id="val-cat-skills">0</span> <span style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);">skills</span> · <span id="val-cat-mcps">0</span> <span style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);">mcps</span></div>
+      <div class="metric-desc">Available to activate on demand</div>
     </div>
   </div>
 
+  <!-- Dual Panels: Skills & MCP -->
   <div class="dashboard-grid">
     <!-- Skills Panel -->
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">📦 Skills Manager</div>
-        <div style="font-size: 0.75rem; color: var(--text-muted);">Symlink Toggle</div>
+        <div class="tab-group">
+          <button class="tab-btn active" id="tab-skill-ws" onclick="switchSkillTab('workspace')">Workspace</button>
+          <button class="tab-btn" id="tab-skill-global" onclick="switchSkillTab('global')">Global</button>
+        </div>
       </div>
-      <div class="search-box">
-        <input type="text" id="skill-search" placeholder="Filter skills..." oninput="filterSkills()">
+      <div class="search-box" style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="skill-search" placeholder="Filter skills..." oninput="filterSkills()" style="flex: 1;">
+        <button class="btn-sort" id="sort-skills-btn" onclick="toggleSort('skills')" title="Sort alphabetically by name">A-Z</button>
       </div>
       <ul class="item-list" id="skill-list">
         <!-- Rendered via JS -->
@@ -347,10 +546,14 @@
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">🔌 MCP Servers (.mcp.json)</div>
-        <div style="font-size: 0.75rem; color: var(--text-muted);">Per-Project Toggle</div>
+        <div class="tab-group">
+          <button class="tab-btn active" id="tab-mcp-ws" onclick="switchMcpTab('workspace')">Workspace</button>
+          <button class="tab-btn" id="tab-mcp-global" onclick="switchMcpTab('global')">Global</button>
+        </div>
       </div>
-      <div class="search-box">
-        <input type="text" id="mcp-search" placeholder="Filter MCP servers..." oninput="filterMcps()">
+      <div class="search-box" style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="mcp-search" placeholder="Filter MCP servers..." oninput="filterMcps()" style="flex: 1;">
+        <button class="btn-sort" id="sort-mcps-btn" onclick="toggleSort('mcps')" title="Sort alphabetically by name">A-Z</button>
       </div>
       <ul class="item-list" id="mcp-list">
         <!-- Rendered via JS -->
@@ -362,17 +565,80 @@
   <div class="panel" style="margin-top: 24px;">
     <div class="panel-header">
       <div class="panel-title">🤖 Subagents & Token Shield Governance</div>
-      <div style="font-size: 0.75rem; color: var(--text-muted);">Cross-Harness Parity (Claude, ZCode, Cursor, DSH, Codex)</div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn-sort" id="sort-subagents-btn" onclick="toggleSort('subagents')" title="Sort alphabetically by name">A-Z</button>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Click shield badge to toggle protection</div>
+      </div>
     </div>
     <ul class="item-list" id="subagent-list" style="max-height: 280px;">
       <!-- Rendered via JS -->
     </ul>
   </div>
 
+  <!-- Config Editor Modal -->
+  <div class="modal-overlay" id="config-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">📝 Configuration Editor</div>
+        <button class="icon-btn" onclick="closeConfigModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Target File:</label>
+          <select id="config-target-select" onchange="changeConfigTarget(this.value)" style="background: var(--surface-elevated); color: var(--text); border: 1px solid var(--border); padding: 5px 10px; border-radius: 4px; font-size: 0.82rem; outline: none;">
+            <option value="workspace-mcp">Workspace .mcp.json</option>
+            <option value="zcode-global">ZCode Global (~/.zcode/cli/config.json)</option>
+            <option value="claude-settings">Claude Global (~/.claude/settings.json)</option>
+          </select>
+          <span id="config-file-path" style="font-size: 0.75rem; color: var(--text-muted); margin-left: auto;"></span>
+        </div>
+        <textarea id="config-editor-content" class="editor-textarea" spellcheck="false"></textarea>
+        <div id="config-syntax-error" style="color: var(--danger); font-size: 0.75rem; margin-top: 6px; display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeConfigModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCurrentConfig()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Doctor Diagnostic Modal -->
+  <div class="modal-overlay" id="doctor-modal">
+    <div class="modal" style="max-width: 650px;">
+      <div class="modal-header">
+        <div class="modal-title">🩺 Environment Doctor Diagnostics</div>
+        <button class="icon-btn" onclick="closeDoctorModal()">✕</button>
+      </div>
+      <div class="modal-body" id="doctor-body">
+        <div style="font-size: 0.85rem; color: var(--text-muted);">Running diagnostics...</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeDoctorModal()">Close</button>
+        <button class="btn btn-primary" onclick="healSymlinks(); closeDoctorModal();">Run Auto-Heal</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast">Saved changes</div>
 
   <script>
-    let state = { skills: [], mcps: [], subagents: [] };
+    let state = {
+      skills: [],
+      mcps: [],
+      globalMcps: {},
+      subagents: [],
+      activeSkillTab: 'workspace', // 'workspace' | 'global'
+      activeMcpTab: 'workspace',    // 'workspace' | 'global'
+      sortByName: {
+        skills: false,
+        mcps: false,
+        subagents: false
+      }
+    };
+
+    let currentConfigTarget = "workspace-mcp";
+    let currentSubagentTarget = null;
+    let lastDataString = "";
 
     function showToast(msg) {
       const toast = document.getElementById("toast");
@@ -383,7 +649,6 @@
 
     let skillSearchIndex = null;
     let mcpSearchIndex = null;
-    let lastDataString = "";
 
     function buildSearchIndexes() {
       if (typeof MiniSearch === 'undefined') return;
@@ -391,20 +656,12 @@
       skillSearchIndex = new MiniSearch({
         fields: ['name', 'description'],
         storeFields: ['name'],
-        searchOptions: {
-          boost: { name: 10, description: 3 },
-          prefix: true,
-          fuzzy: 0.2
-        }
+        searchOptions: { boost: { name: 10, description: 3 }, prefix: true, fuzzy: 0.2 }
       });
       const skillDocsMap = new Map();
       state.skills.forEach(s => {
         if (!skillDocsMap.has(s.name)) {
-          skillDocsMap.set(s.name, {
-            id: s.name,
-            name: s.name,
-            description: s.description || ""
-          });
+          skillDocsMap.set(s.name, { id: s.name, name: s.name, description: s.description || "" });
         }
       });
       skillSearchIndex.addAll(Array.from(skillDocsMap.values()));
@@ -412,21 +669,12 @@
       mcpSearchIndex = new MiniSearch({
         fields: ['name', 'description', 'command'],
         storeFields: ['name'],
-        searchOptions: {
-          boost: { name: 10, description: 3, command: 1 },
-          prefix: true,
-          fuzzy: 0.2
-        }
+        searchOptions: { boost: { name: 10, description: 3, command: 1 }, prefix: true, fuzzy: 0.2 }
       });
       const mcpDocsMap = new Map();
       state.mcps.forEach(m => {
         if (!mcpDocsMap.has(m.name)) {
-          mcpDocsMap.set(m.name, {
-            id: m.name,
-            name: m.name,
-            description: m.description || "",
-            command: m.command || ""
-          });
+          mcpDocsMap.set(m.name, { id: m.name, name: m.name, description: m.description || "", command: m.command || "" });
         }
       });
       mcpSearchIndex.addAll(Array.from(mcpDocsMap.values()));
@@ -451,10 +699,9 @@
         document.getElementById("val-cat-skills").innerText = data.metrics.total_catalog_skills;
         document.getElementById("val-cat-mcps").innerText = data.metrics.total_catalog_mcps;
 
-        // Build skills list from effective runtime resolution
         state.skills = (data.skills.effective || []).map(s => ({
           name: s.name,
-          scope: s.scope, // 'global' | 'project' | 'catalog'
+          scope: s.scope,
           effectiveActive: s.effectiveActive,
           isProjectActive: s.isProjectActive,
           isGlobalActive: s.isGlobalActive,
@@ -463,20 +710,19 @@
           description: s.description || ""
         }));
 
-        // Build MCP list from effective runtime resolution
-        state.mcps = (data.mcps.effective || []).map(eff => {
-          return {
-            name: eff.name,
-            effectiveActive: eff.effectiveActive,
-            workspaceActive: eff.workspaceState === 'active',
-            globalState: eff.globalState,
-            workspaceState: eff.workspaceState,
-            isShadowed: eff.isShadowed,
-            shadowReason: eff.shadowReason,
-            command: eff.config.command || "",
-            description: eff.config.description || (eff.config.args ? eff.config.args.join(" ") : "")
-          };
-        });
+        state.globalMcps = data.mcps.global || {};
+
+        state.mcps = (data.mcps.effective || []).map(eff => ({
+          name: eff.name,
+          effectiveActive: eff.effectiveActive,
+          workspaceActive: eff.workspaceState === 'active',
+          globalState: eff.globalState,
+          workspaceState: eff.workspaceState,
+          isShadowed: eff.isShadowed,
+          shadowReason: eff.shadowReason,
+          command: eff.config?.command || "",
+          description: eff.config?.description || (eff.config?.args ? eff.config.args.join(" ") : "")
+        }));
 
         state.subagents = data.subagents || [];
 
@@ -489,6 +735,299 @@
       }
     }
 
+    function switchSkillTab(tab) {
+      state.activeSkillTab = tab;
+      document.getElementById("tab-skill-ws").className = tab === 'workspace' ? 'tab-btn active' : 'tab-btn';
+      document.getElementById("tab-skill-global").className = tab === 'global' ? 'tab-btn active active-global' : 'tab-btn';
+      renderSkills();
+    }
+
+    function switchMcpTab(tab) {
+      state.activeMcpTab = tab;
+      document.getElementById("tab-mcp-ws").className = tab === 'workspace' ? 'tab-btn active' : 'tab-btn';
+      document.getElementById("tab-mcp-global").className = tab === 'global' ? 'tab-btn active active-global' : 'tab-btn';
+      renderMcps();
+    }
+
+    function toggleSort(type) {
+      state.sortByName[type] = !state.sortByName[type];
+      const btn = document.getElementById(`sort-${type}-btn`);
+      if (btn) {
+        if (state.sortByName[type]) {
+          btn.classList.add("active");
+          btn.innerText = "A-Z (On)";
+        } else {
+          btn.classList.remove("active");
+          btn.innerText = "A-Z";
+        }
+      }
+      if (type === 'skills') renderSkills();
+      else if (type === 'mcps') renderMcps();
+      else if (type === 'subagents') renderSubagents();
+    }
+
+    function renderSkills() {
+      const q = document.getElementById("skill-search").value.trim();
+      const list = document.getElementById("skill-list");
+      list.innerHTML = "";
+
+      let listData = [...state.skills];
+
+      if (q) {
+        if (skillSearchIndex) {
+          const results = skillSearchIndex.search(q);
+          const resultMap = new Map(results.map(r => [r.id, r.score]));
+          listData = listData.filter(s => resultMap.has(s.name)).sort((a, b) => (resultMap.get(b.name) || 0) - (resultMap.get(a.name) || 0));
+        }
+        if (listData.length === 0) {
+          listData = state.skills.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || (s.description && s.description.toLowerCase().includes(q.toLowerCase())));
+        }
+        if (state.sortByName.skills) {
+          listData.sort((a, b) => a.name.localeCompare(b.name));
+        }
+      } else {
+        if (state.sortByName.skills) {
+          listData.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (state.activeSkillTab === 'workspace') {
+          // In Workspace tab: show active first, then dormant, then catalog
+          listData.sort((a, b) => {
+            if (a.effectiveActive !== b.effectiveActive) return a.effectiveActive ? -1 : 1;
+            if (a.isDormant !== b.isDormant) return a.isDormant ? -1 : 1;
+            return a.name.localeCompare(b.name);
+          });
+        } else {
+          // In Global tab: show global active first
+          listData.sort((a, b) => {
+            if (a.isGlobalActive !== b.isGlobalActive) return a.isGlobalActive ? -1 : 1;
+            return a.name.localeCompare(b.name);
+          });
+        }
+      }
+
+      listData.forEach(s => {
+        const li = document.createElement("li");
+        li.className = "item-row";
+
+        if (state.activeSkillTab === 'workspace') {
+          // WORKSPACE TAB VIEW
+          let badges = [];
+          let meta = s.description || "";
+          let isChecked = s.effectiveActive;
+
+          if (s.isGlobalActive) {
+            badges.push(`<span class="badge badge-global">Global Active</span>`);
+            badges.push(`<span class="badge badge-linked">Active</span>`);
+            if (!meta) meta = "Active globally in session (0 local tokens injected)";
+          } else if (s.isProjectActive) {
+            badges.push(s.isLink ? `<span class="badge badge-linked">Linked</span>` : `<span class="badge badge-local">Local</span>`);
+            badges.push(`<span class="badge badge-linked">Active</span>`);
+          } else if (s.isDormant) {
+            badges.push(`<span class="badge badge-catalog">Dormant</span>`);
+            if (!meta) meta = "Dormant in project (0 tokens injected)";
+          } else {
+            badges.push(`<span class="badge badge-catalog">Catalog</span>`);
+            if (!meta) meta = "Available to link (0 tokens)";
+          }
+
+          li.innerHTML = `
+            <div class="item-info">
+              <div class="item-name">${s.name} ${badges.join(" ")}</div>
+              <div class="item-meta">${meta}</div>
+            </div>
+            <div class="row-actions">
+              <button class="icon-btn" onclick="openConfigModal('skill', '${s.name}')" title="Edit SKILL.md">📝</button>
+              <button class="icon-btn icon-btn-danger" onclick="deleteSkillPrompt('${s.name}')" title="Permanently delete skill">🗑️</button>
+              <label class="switch">
+                <input type="checkbox" ${isChecked ? "checked" : ""} onchange="toggleSkill('${s.name}', this.checked, 'workspace')">
+                <span class="slider"></span>
+              </label>
+            </div>
+          `;
+        } else {
+          // GLOBAL TAB VIEW
+          const globalBadge = s.isGlobalActive
+            ? `<span class="badge badge-global">Global Active</span>`
+            : `<span class="badge badge-catalog">Global Inactive</span>`;
+
+          const meta = s.description || (s.isGlobalActive ? "Active globally across all agent sessions" : "Available in central catalog");
+
+          li.innerHTML = `
+            <div class="item-info">
+              <div class="item-name">${s.name} ${globalBadge}</div>
+              <div class="item-meta">${meta}</div>
+            </div>
+            <div class="row-actions">
+              <button class="icon-btn" onclick="openConfigModal('skill', '${s.name}')" title="Edit SKILL.md">📝</button>
+              <button class="icon-btn icon-btn-danger" onclick="deleteSkillPrompt('${s.name}')" title="Permanently delete skill">🗑️</button>
+              <label class="switch switch-purple">
+                <input type="checkbox" ${s.isGlobalActive ? "checked" : ""} onchange="toggleSkillGlobal('${s.name}', this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          `;
+        }
+
+        list.appendChild(li);
+      });
+    }
+
+    function renderMcps() {
+      const q = document.getElementById("mcp-search").value.trim();
+      const list = document.getElementById("mcp-list");
+      list.innerHTML = "";
+
+      let listData = [...state.mcps];
+
+      if (q) {
+        if (mcpSearchIndex) {
+          const results = mcpSearchIndex.search(q);
+          const resultMap = new Map(results.map(r => [r.id, r.score]));
+          listData = listData.filter(m => resultMap.has(m.name)).sort((a, b) => (resultMap.get(b.name) || 0) - (resultMap.get(a.name) || 0));
+        }
+        if (listData.length === 0) {
+          listData = state.mcps.filter(m => m.name.toLowerCase().includes(q.toLowerCase()) || (m.description && m.description.toLowerCase().includes(q.toLowerCase())));
+        }
+        if (state.sortByName.mcps) {
+          listData.sort((a, b) => a.name.localeCompare(b.name));
+        }
+      } else {
+        if (state.sortByName.mcps) {
+          listData.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (state.activeMcpTab === 'workspace') {
+          listData.sort((a, b) => {
+            if (a.isShadowed !== b.isShadowed) return a.isShadowed ? -1 : 1;
+            if (a.effectiveActive !== b.effectiveActive) return a.effectiveActive ? -1 : 1;
+            return a.name.localeCompare(b.name);
+          });
+        } else {
+          listData.sort((a, b) => {
+            const aGlob = a.name in state.globalMcps;
+            const bGlob = b.name in state.globalMcps;
+            if (aGlob !== bGlob) return aGlob ? -1 : 1;
+            return a.name.localeCompare(b.name);
+          });
+        }
+      }
+
+      listData.forEach(m => {
+        const li = document.createElement("li");
+        li.className = "item-row";
+
+        if (state.activeMcpTab === 'workspace') {
+          // WORKSPACE TAB VIEW
+          let badges = [];
+          let meta = m.description || m.command || "Local MCP server";
+          let actionControl = "";
+          let mcpSwitch = "";
+
+          if (m.isShadowed) {
+            // Explicit conflict: global ON/local dormant OR global OFF/local active
+            badges.push(`<span class="badge" style="background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">⚠️ BLOCKED</span>`);
+            meta = `<span style="color: #ef4444; font-weight: 500;">${m.shadowReason}</span>`;
+            actionControl = `<button class="btn" style="padding: 3px 8px; font-size: 0.72rem; color: #ef4444; border-color: #ef4444;" onclick="unblockMcp('${m.name}')">Unblock</button>`;
+            // No toggle when blocked
+          } else if (m.effectiveActive) {
+            badges.push(`<span class="badge badge-linked">Active</span>`);
+            if (m.globalState === 'active') {
+              badges.push(`<span class="badge badge-global">Inherited: Global ON</span>`);
+              // Effective ON due to global - show checked, disabled, with tooltip
+              mcpSwitch = `
+                <label class="switch" title="Controlled by Global scope; disable Global to manage locally">
+                  <input type="checkbox" checked disabled>
+                  <span class="slider"></span>
+                </label>
+              `;
+            } else {
+              badges.push(`<span class="badge badge-local">Workspace</span>`);
+              // Locally controlled - normal toggle
+              mcpSwitch = `
+                <label class="switch">
+                  <input type="checkbox" ${m.workspaceActive ? "checked" : ""} onchange="toggleMcp('${m.name}', this.checked)">
+                  <span class="slider"></span>
+                </label>
+              `;
+            }
+          } else if (m.globalState === 'dormant') {
+            // Global explicitly OFF - blocks local activation
+            badges.push(`<span class="badge badge-catalog">Dormant</span>`);
+            badges.push(`<span class="badge" style="background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);">Blocked by Global OFF</span>`);
+            meta = `<span style="color: #f59e0b; font-weight: 500;">Global disabled setting forces this workspace OFF</span>`;
+            mcpSwitch = `
+              <label class="switch" title="Blocked by Global scope; enable Global to manage locally">
+                <input type="checkbox" disabled>
+                <span class="slider"></span>
+              </label>
+            `;
+            actionControl = `<button class="btn" style="padding: 3px 8px; font-size: 0.72rem; color: #f59e0b; border-color: #f59e0b;" onclick="unblockMcp('${m.name}')">Remove Global Block</button>`;
+          } else {
+            // Dormant locally, no global entry
+            badges.push(`<span class="badge badge-catalog">Dormant</span>`);
+            mcpSwitch = `
+              <label class="switch">
+                <input type="checkbox" ${m.workspaceActive ? "checked" : ""} onchange="toggleMcp('${m.name}', this.checked)">
+                <span class="slider"></span>
+              </label>
+            `;
+          }
+
+          li.innerHTML = `
+            <div class="item-info">
+              <div class="item-name">${m.name} ${badges.join(" ")}</div>
+              <div class="item-meta">${meta}</div>
+            </div>
+            <div class="row-actions">
+              ${actionControl}
+              <button class="icon-btn" onclick="openConfigModal('workspace-mcp')" title="Edit in .mcp.json">📝</button>
+              <button class="icon-btn icon-btn-danger" onclick="deleteMcpPrompt('${m.name}', 'workspace')" title="Delete from workspace .mcp.json">🗑️</button>
+              ${mcpSwitch}
+            </div>
+          `;
+        } else {
+          // GLOBAL TAB VIEW
+          let globalBadge = "";
+          let meta = m.description || m.command || "Global User Scope Server";
+          const inGlobal = m.name in state.globalMcps;
+          const globalObj = state.globalMcps[m.name];
+          const isGlobalEnabled = inGlobal && globalObj.enabled !== false;
+
+          if (inGlobal) {
+            if (isGlobalEnabled) {
+              globalBadge = `<span class="badge badge-global">Global: ON</span>`;
+              meta = "Active globally; workspaces inherit this setting";
+            } else {
+              globalBadge = `<span class="badge" style="background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);">Global: OFF (Blocking)</span>`;
+              meta = `<span style="color: #f59e0b;">Global disabled setting forces local workspaces OFF</span>`;
+            }
+          } else {
+            globalBadge = `<span class="badge badge-catalog">Not in Global</span>`;
+            meta = "Managed independently by each project";
+          }
+
+          // Replace "Unshadow" with "Remove Global" - warns it affects ALL workspaces
+          const removeGlobalBtn = inGlobal
+            ? `<button class="btn" style="padding: 3px 8px; font-size: 0.72rem; color: var(--danger); border-color: var(--danger);" onclick="confirmRemoveGlobalMcp('${m.name}')" title="Remove from global scope — affects ALL workspaces">Remove Global</button>`
+            : ``;
+
+          li.innerHTML = `
+            <div class="item-info">
+              <div class="item-name">${m.name} ${globalBadge}</div>
+              <div class="item-meta">${meta}</div>
+            </div>
+            <div class="row-actions">
+              ${removeGlobalBtn}
+              <button class="icon-btn" onclick="openConfigModal('zcode-global')" title="Edit in ~/.zcode/cli/config.json">📝</button>
+              <label class="switch switch-purple" title="Global Scope Switch">
+                <input type="checkbox" ${isGlobalEnabled ? "checked" : ""} onchange="toggleMcpGlobal('${m.name}', this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          `;
+        }
+
+        list.appendChild(li);
+      });
+    }
+
     function renderSubagents() {
       const list = document.getElementById("subagent-list");
       if (!list) return;
@@ -499,166 +1038,174 @@
         return;
       }
 
-      state.subagents.forEach(a => {
+      let listData = [...state.subagents];
+      if (state.sortByName.subagents) {
+        listData.sort((a, b) => a.name.localeCompare(b.name));
+      } else {
+        listData.sort((a, b) => (a.isDormant ? 1 : 0) - (b.isDormant ? 1 : 0));
+      }
+
+      listData.forEach(a => {
         const li = document.createElement("li");
         li.className = "item-row";
 
         const scopeBadge = a.scope === "global"
-          ? `<span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc;">Global</span>`
+          ? `<span class="badge badge-global">Global</span>`
           : `<span class="badge badge-local">Project</span>`;
 
+        const statusBadge = a.isDormant
+          ? `<span class="badge badge-catalog">Dormant</span>`
+          : `<span class="badge badge-linked">Active</span>`;
+
         const shieldBadge = a.hasTokenShield
-          ? `<span class="badge" style="background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3);">Shield: Protected ✅</span>`
-          : `<span class="badge" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);">Shield: None ⚠️</span>`;
+          ? `<span class="badge badge-shield" style="background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3);" onclick="toggleSubagentShield('${a.name}', '${a.scope}', false)" title="Click to remove token shield">Shield: Protected ✅</span>`
+          : `<span class="badge badge-shield" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);" onclick="toggleSubagentShield('${a.name}', '${a.scope}', true)" title="Click to protect with token shield">Shield: None ⚠️</span>`;
 
         const toolsStr = a.tools.length > 0 ? a.tools.join(", ") : "default (all tools)";
         const strippedStr = a.disallowedTools.length > 0 ? ` · <span style="color: var(--accent);">Stripped: ${a.disallowedTools.join(", ")}</span>` : "";
 
         li.innerHTML = `
           <div class="item-info">
-            <div class="item-name">${a.name} ${scopeBadge} ${shieldBadge}</div>
+            <div class="item-name">${a.name} ${scopeBadge} ${statusBadge} ${shieldBadge}</div>
             <div class="item-meta">${a.description || "Subagent manifest"}</div>
             <div class="item-meta" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
               Tools: ${toolsStr}${strippedStr}
             </div>
           </div>
+          <div class="row-actions">
+            <button class="icon-btn" onclick="openConfigModal('subagent', '${a.name}')" title="Edit subagent markdown">📝</button>
+            <button class="icon-btn icon-btn-danger" onclick="deleteSubagent('${a.name}', '${a.scope}')" title="Delete subagent">🗑️</button>
+            <label class="switch">
+              <input type="checkbox" ${!a.isDormant ? "checked" : ""} onchange="toggleSubagent('${a.name}', '${a.scope}', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
         `;
         list.appendChild(li);
       });
     }
 
-    function renderSkills() {
-      const q = document.getElementById("skill-search").value.trim();
-      const list = document.getElementById("skill-list");
-      list.innerHTML = "";
+    function filterSkills() { renderSkills(); }
+    function filterMcps() { renderMcps(); }
 
-      let filtered = [];
-      if (!q) {
-        filtered = [...state.skills];
-        filtered.sort((a, b) => {
-          if (a.effectiveActive !== b.effectiveActive) return a.effectiveActive ? -1 : 1;
-          if (a.scope !== b.scope) {
-            if (a.scope === 'global') return -1;
-            if (b.scope === 'global') return 1;
-            if (a.scope === 'project') return -1;
-            if (b.scope === 'project') return 1;
-          }
-          return a.name.localeCompare(b.name);
+    async function toggleSubagent(name, scope, enable) {
+      try {
+        lastDataString = "";
+        const res = await fetch("/api/subagent/toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, scope, enable })
         });
-      } else if (skillSearchIndex) {
-        const results = skillSearchIndex.search(q);
-        const resultMap = new Map(results.map(r => [r.id, r.score]));
-        filtered = state.skills
-          .filter(s => resultMap.has(s.name))
-          .sort((a, b) => (resultMap.get(b.name) || 0) - (resultMap.get(a.name) || 0));
-
-        if (filtered.length === 0) {
-          filtered = state.skills.filter(s => 
-            s.name.toLowerCase().includes(q.toLowerCase()) || 
-            (s.description && s.description.toLowerCase().includes(q.toLowerCase()))
-          );
-        }
-      } else {
-        filtered = state.skills.filter(s => s.name.toLowerCase().includes(q.toLowerCase()));
+        const result = await res.json();
+        showToast(result.message || (enable ? `Activated subagent: ${name}` : `Deactivated subagent: ${name}`));
+        await loadStatus();
+      } catch (err) {
+        showToast("Error toggling subagent");
       }
-
-      filtered.forEach(s => {
-        const li = document.createElement("li");
-        li.className = "item-row";
-
-        let scopeBadge = "";
-        let meta = s.description || "";
-
-        if (s.scope === "global") {
-          scopeBadge = `<span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc;">Global</span>`;
-          if (!meta) meta = "Active globally across all projects";
-        } else if (s.scope === "project") {
-          scopeBadge = `<span class="badge badge-local">Project</span>`;
-          if (!meta) meta = "Active in this project";
-        } else {
-          scopeBadge = `<span class="badge badge-catalog">Catalog</span>`;
-          if (!meta) meta = "Available in catalog (0 tokens)";
-        }
-
-        const activeBadge = s.effectiveActive ? `<span class="badge badge-linked">Active</span>` : ``;
-
-        li.innerHTML = `
-          <div class="item-info">
-            <div class="item-name">${s.name} ${scopeBadge} ${activeBadge}</div>
-            <div class="item-meta">${meta}</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" ${s.effectiveActive ? "checked" : ""} onchange="toggleSkill('${s.name}', this.checked, '${s.scope}')">
-            <span class="slider"></span>
-          </label>
-        `;
-        list.appendChild(li);
-      });
     }
 
-    function renderMcps() {
-      const q = document.getElementById("mcp-search").value.trim();
-      const list = document.getElementById("mcp-list");
-      list.innerHTML = "";
-
-      let filtered = [];
-      if (!q) {
-        filtered = [...state.mcps];
-        filtered.sort((a, b) => {
-          if (a.isShadowed !== b.isShadowed) return a.isShadowed ? -1 : 1;
-          if (a.effectiveActive !== b.effectiveActive) return a.effectiveActive ? -1 : 1;
-          return a.name.localeCompare(b.name);
+    async function deleteMcpPrompt(name, scope) {
+      if (!confirm(`Are you sure you want to delete MCP server "${name}" from ${scope === 'global' ? 'Global config' : 'Workspace .mcp.json'}?`)) return;
+      try {
+        lastDataString = "";
+        const res = await fetch("/api/mcp/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, scope })
         });
-      } else if (mcpSearchIndex) {
-        const results = mcpSearchIndex.search(q);
-        const resultMap = new Map(results.map(r => [r.id, r.score]));
-        filtered = state.mcps
-          .filter(m => resultMap.has(m.name))
-          .sort((a, b) => (resultMap.get(b.name) || 0) - (resultMap.get(a.name) || 0));
-
-        if (filtered.length === 0) {
-          filtered = state.mcps.filter(m => 
-            m.name.toLowerCase().includes(q.toLowerCase()) || 
-            (m.description && m.description.toLowerCase().includes(q.toLowerCase()))
-          );
-        }
-      } else {
-        filtered = state.mcps.filter(m => m.name.toLowerCase().includes(q.toLowerCase()));
+        const result = await res.json();
+        showToast(result.message || `Deleted MCP server: ${name}`);
+        await loadStatus();
+      } catch (err) {
+        showToast("Error deleting MCP server");
       }
+    }
 
-      filtered.forEach(m => {
-        const li = document.createElement("li");
-        li.className = "item-row";
-        const scopeBadge = m.globalState === 'active'
-          ? `<span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc;">Global</span>`
-          : `<span class="badge badge-local">Project</span>`;
-        
-        let statusBadge = '';
-        let meta = m.description || m.command || "MCP server";
+    async function toggleSkill(name, enable, scope) {
+      try {
+        lastDataString = "";
+        const res = await fetch("/api/skill/toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, enable, scope })
+        });
+        const result = await res.json();
+        showToast(result.message || (enable ? `Enabled skill: ${name}` : `Disabled skill: ${name}`));
+        await loadStatus();
+      } catch (err) {
+        showToast("Error updating skill");
+      }
+    }
 
-        if (m.isShadowed) {
-          statusBadge = `<span class="badge" style="background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">Blocked by Global</span>`;
-          meta = `<span style="color: #ef4444; font-weight: 500;">${m.shadowReason}</span>`;
-        } else if (m.effectiveActive) {
-          statusBadge = `<span class="badge badge-linked">Active</span>`;
-        }
+    async function toggleSkillGlobal(name, enable) {
+      try {
+        lastDataString = "";
+        const res = await fetch("/api/skill/global-toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, enable })
+        });
+        const result = await res.json();
+        showToast(result.message || (enable ? `Enabled global skill: ${name}` : `Disabled global skill: ${name}`));
+        await loadStatus();
+      } catch (err) {
+        showToast("Error toggling global skill");
+      }
+    }
 
-        li.innerHTML = `
-          <div class="item-info">
-            <div class="item-name">${m.name} ${scopeBadge} ${statusBadge}</div>
-            <div class="item-meta">${meta}</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" ${m.workspaceActive ? "checked" : ""} onchange="toggleMcp('${m.name}', this.checked)">
-            <span class="slider"></span>
-          </label>
-        `;
-        list.appendChild(li);
-      });
+    async function deleteSkillPrompt(name) {
+      if (!confirm(`Are you sure you want to permanently delete skill "${name}"?`)) return;
+      const fromCatalog = confirm(`Also purge "${name}" from central machine catalog (~/.agents/catalog/)?`);
+      try {
+        lastDataString = "";
+        const res = await fetch("/api/skill/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, fromCatalog })
+        });
+        const result = await res.json();
+        showToast(result.message || "Skill deleted");
+        await loadStatus();
+      } catch (err) {
+        showToast("Error deleting skill");
+      }
+    }
+
+    async function toggleMcp(name, enable) {
+      try {
+        lastDataString = "";
+        const res = await fetch("/api/mcp/toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, enable })
+        });
+        const result = await res.json();
+        showToast(result.message || (enable ? `Enabled MCP: ${name}` : `Disabled MCP: ${name}`));
+        await loadStatus();
+      } catch (err) {
+        showToast("Error toggling MCP");
+      }
+    }
+
+    async function toggleMcpGlobal(name, enable) {
+      try {
+        lastDataString = "";
+        const res = await fetch("/api/mcp/global-toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, enable })
+        });
+        const result = await res.json();
+        showToast(result.message || (enable ? `Enabled global MCP: ${name}` : `Disabled global MCP: ${name}`));
+        await loadStatus();
+      } catch (err) {
+        showToast("Error toggling global MCP");
+      }
     }
 
     async function unblockMcp(name) {
       try {
+        lastDataString = "";
         const res = await fetch("/api/mcp/toggle", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -672,53 +1219,186 @@
       }
     }
 
-    function filterSkills() { renderSkills(); }
-    function filterMcps() { renderMcps(); }
-
-    async function toggleSkill(name, enable, scope) {
-      try {
-        lastDataString = "";
-        const res = await fetch("/api/skill/toggle", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, enable, scope })
-        });
-        const result = await res.json();
-        if (result.success) {
-          showToast(result.message || (enable ? `Enabled skill: ${name}` : `Disabled skill: ${name}`));
-        } else {
-          showToast(`⚠️ ${result.message || "Failed to toggle skill"}`);
-        }
-        await loadStatus();
-      } catch (err) {
-        showToast("Error toggling skill");
-      }
-    }
-
-    async function toggleMcp(name, enable) {
+    async function confirmRemoveGlobalMcp(name) {
+      if (!confirm(`Remove "${name}" from global scope?\n\nThis affects ALL workspaces on this machine — the server will no longer be globally managed and each workspace will control it independently.\n\nThe server's configuration in ~/.zcode/cli/config.json will be deleted.`)) return;
       try {
         lastDataString = "";
         const res = await fetch("/api/mcp/toggle", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, enable })
+          body: JSON.stringify({ name, scope: 'unshadow' })
         });
         const result = await res.json();
-        if (result.success) {
-          showToast(result.message || (enable ? `Enabled MCP: ${name}` : `Disabled MCP: ${name}`));
-        } else {
-          showToast(`⚠️ ${result.message || "Failed to toggle MCP"}`);
-        }
+        showToast(result.message || `Removed global definition for ${name}`);
         await loadStatus();
       } catch (err) {
-        showToast("Error toggling MCP");
+        showToast("Error removing global MCP");
       }
+    }
+
+    async function toggleSubagentShield(name, scope, enable) {
+      try {
+        lastDataString = "";
+        const res = await fetch("/api/subagent/toggle-shield", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, scope, enable })
+        });
+        const result = await res.json();
+        showToast(result.message || "Updated subagent shield");
+        await loadStatus();
+      } catch (err) {
+        showToast("Error updating token shield");
+      }
+    }
+
+    async function deleteSubagent(name, scope) {
+      if (!confirm(`Are you sure you want to permanently delete subagent "${name}"?`)) return;
+      try {
+        lastDataString = "";
+        const res = await fetch("/api/subagent/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, scope })
+        });
+        const result = await res.json();
+        showToast(result.message || "Deleted subagent");
+        await loadStatus();
+      } catch (err) {
+        showToast("Error deleting subagent");
+      }
+    }
+
+    /* Config Editor Functions */
+    async function openConfigModal(target, resourceName) {
+      currentConfigTarget = target;
+      currentSubagentTarget = resourceName || null;
+      const select = document.getElementById("config-target-select");
+
+      let dynamicOpt = select.querySelector("option[data-dynamic='true']");
+      if (dynamicOpt) dynamicOpt.remove();
+
+      if (target === 'skill') {
+        dynamicOpt = document.createElement("option");
+        dynamicOpt.value = "skill";
+        dynamicOpt.setAttribute("data-dynamic", "true");
+        dynamicOpt.innerText = `Skill: ${resourceName} (SKILL.md)`;
+        select.appendChild(dynamicOpt);
+        select.value = "skill";
+      } else if (target === 'subagent') {
+        dynamicOpt = document.createElement("option");
+        dynamicOpt.value = "subagent";
+        dynamicOpt.setAttribute("data-dynamic", "true");
+        dynamicOpt.innerText = `Subagent: ${resourceName} (.md)`;
+        select.appendChild(dynamicOpt);
+        select.value = "subagent";
+      } else {
+        select.value = target;
+      }
+
+      document.getElementById("config-modal").style.display = "flex";
+      await loadConfigFile();
+    }
+
+    function closeConfigModal() {
+      document.getElementById("config-modal").style.display = "none";
+    }
+
+    async function changeConfigTarget(target) {
+      currentConfigTarget = target;
+      if (target !== 'subagent' && target !== 'skill') {
+        currentSubagentTarget = null;
+      }
+      await loadConfigFile();
+    }
+
+    async function loadConfigFile() {
+      try {
+        const res = await fetch("/api/config/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: currentConfigTarget, subagentName: currentSubagentTarget })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById("config-editor-content").value = data.content;
+          document.getElementById("config-file-path").innerText = data.filePath;
+          document.getElementById("config-syntax-error").style.display = "none";
+        } else {
+          document.getElementById("config-editor-content").value = "";
+          document.getElementById("config-file-path").innerText = data.message;
+        }
+      } catch (err) {
+        showToast("Failed to load config");
+      }
+    }
+
+    async function saveCurrentConfig() {
+      const content = document.getElementById("config-editor-content").value;
+      const errorDiv = document.getElementById("config-syntax-error");
+
+      try {
+        const res = await fetch("/api/config/write", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target: currentConfigTarget,
+            content,
+            subagentName: currentSubagentTarget
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || "Configuration saved");
+          errorDiv.style.display = "none";
+          closeConfigModal();
+          await loadStatus();
+        } else {
+          errorDiv.innerText = data.message;
+          errorDiv.style.display = "block";
+        }
+      } catch (err) {
+        showToast("Error saving configuration");
+      }
+    }
+
+    /* Doctor Diagnostics Modal */
+    async function openDoctorModal() {
+      document.getElementById("doctor-modal").style.display = "flex";
+      const body = document.getElementById("doctor-body");
+      body.innerHTML = "<div style='color: var(--text-muted);'>Running diagnostics audit...</div>";
+
+      try {
+        const res = await fetch("/api/doctor");
+        const data = await res.json();
+        if (data.passed) {
+          body.innerHTML = `
+            <div style="color: var(--accent); font-weight: 600; font-size: 1rem; margin-bottom: 8px;">✅ All Systems Operational</div>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">Zero symlink drift, zero token bloat, and all global harnesses are in clean parity.</div>
+          `;
+        } else {
+          let html = `<div style="color: var(--warning); font-weight: 600; font-size: 0.95rem; margin-bottom: 12px;">⚠️ Found ${data.issues.length} Issue(s):</div><ul style="list-style: none; font-size: 0.82rem;">`;
+          data.issues.forEach(iss => {
+            const tag = iss.severity === "error" ? "<span style='color: var(--danger); font-weight: 600;'>[ERROR]</span>" : "<span style='color: var(--warning); font-weight: 600;'>[WARN]</span>";
+            html += `<li style="padding: 6px 0; border-bottom: 1px solid var(--border);">${tag} ${iss.message}</li>`;
+          });
+          html += "</ul>";
+          body.innerHTML = html;
+        }
+      } catch (err) {
+        body.innerHTML = "<div style='color: var(--danger);'>Failed to run doctor audit.</div>";
+      }
+    }
+
+    function closeDoctorModal() {
+      document.getElementById("doctor-modal").style.display = "none";
     }
 
     async function healSymlinks() {
       try {
-        await fetch("/api/heal", { method: "POST" });
-        showToast("Reconciled and healed all adapter symlinks");
+        const res = await fetch("/api/heal", { method: "POST" });
+        const data = await res.json();
+        showToast(data.message || "Reconciled and healed symlinks");
         await loadStatus();
       } catch (err) {
         showToast("Error running heal");
@@ -727,8 +1407,7 @@
 
     window.onload = () => {
       loadStatus();
-      // Auto-sync status every 2 seconds with ZCode and .mcp.json
-      setInterval(loadStatus, 2000);
+      setInterval(loadStatus, 2500);
     };
   </script>
 </body>

@@ -6,29 +6,49 @@ Thumbs.db
 .worktrees/
 worktrees/
 
-# Superpowers SDD scratch files
+# Superpowers & Scratch
 .superpowers/
+scratch/
 
-# Environments & Dependencies
-node_modules/
+# Environments, Secrets & Configs
 .env
+.env.*
 .env.local
+**/.env
+**/.env.*
+!**/.env.example
+*.local
+
+# Logs & Debug
 *.log
+logs/
+
+# Python Caches & Artifacts
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Build Artifacts
+node_modules/
+dist/
+build/
+**/dist/
+playwright-report/
+test-results/
+
+# Runtime Engines & Heavy Storage (>500MB local instances)
+.hindsight-runtime/
+.pg0/
+archive/
+.workbench/
+artifacts/workbench/
+index.js
 
 # Machine-wide Global Configs (Symlinks to ~/)
 global-configs/
 
-# speckit-guide for developer
+# Documentation & Guides
 speckit-guide.md
-
-# Isolated local workbench dependencies, data and test artifacts
-.workbench/
-artifacts/workbench/
-**/dist/
-**/.env
-**/.env.*
-!**/.env.example
-playwright-report/
-test-results/

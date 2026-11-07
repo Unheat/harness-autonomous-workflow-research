@@ -1,149 +1,15 @@
 #!/usr/bin/env bun
 /**
  * Universal Cross-Harness Agentic Environment CLI (harness / agn)
- * 100% Strongly-Typed TypeScript running on Bun.
- * Zero-prefix interactive shell, zero external dependencies.
+ * 100% Strongly-Typed TypeScript running on Bun (< 90 lines).
  */
 
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import { spawn } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { colorize, COLORS } from '../src/config';
-import { findWorkspaceRoot, getWorkspacePaths, ensureWorkspaceDirs, initWorkspace } from '../src/workspace';
-import { addSkill, removeSkill, createLocalSkill } from '../src/skills';
-import { enableGlobalSkill, disableGlobalSkill } from '../src/skills-global';
-import { enableMcp, disableMcp, removeMcp, registerMcpInCatalog } from '../src/mcp';
-import { enableGlobalMcp, disableGlobalMcp, removeGlobalMcp } from '../src/mcp-global';
-import { healWorkspace, cleanGlobal } from '../src/doctor';
-import { printStatus, printCatalog, runDoctor, printHelp, printSubagents } from '../src/cli-printers';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-function launchUi(workspaceRoot: string): void {
-  const uiServer = path.join(__dirname, '..', 'ui', 'server.ts');
-  const child = spawn('bun', [uiServer], {
-    cwd: workspaceRoot,
-    stdio: 'inherit'
-  });
-  child.on('exit', () => {});
-}
-
-async function handleCommand(cmd: string, args: string[], workspaceRoot: string): Promise<boolean> {
-  const c = cmd.toLowerCase();
-  const { name, root } = getWorkspacePaths(workspaceRoot);
-
-  if (['exit', 'quit', 'q'].includes(c)) {
-    console.log('Goodbye!');
-    return false;
-  }
-  if (c === 'help') {
-    printHelp();
-  } else if (c === 'status') {
-    await printStatus(root);
-  } else if (c === 'init') {
-    const target = args[0] ? path.resolve(root, args[0]) : root;
-    const res = await initWorkspace(target);
-    console.log(colorize(`✅ Initialized clean 3-layer architecture for "${res.name}".`, COLORS.GREEN));
-  } else if (['catalog', 'cat'].includes(c)) {
-    await printCatalog(root);
-  } else if (['skill', 'skills'].includes(c)) {
-    const sub = (args[0] || '').toLowerCase();
-    const target = args[1];
-
-    if (sub === 'global') {
-      const gAct = (args[1] || '').toLowerCase();
-      const gTarget = args[2];
-      if (['on', 'enable'].includes(gAct) && gTarget) {
-        const res = await enableGlobalSkill(gTarget);
-        console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-      } else if (['off', 'disable'].includes(gAct) && gTarget) {
-        const res = await disableGlobalSkill(gTarget);
-        console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-      } else {
-        console.log('Usage: skill global on <name> | skill global off <name>');
-      }
-    } else if (['add', 'on', 'enable'].includes(sub) && target) {
-      const res = await addSkill(root, target);
-      console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-    } else if (['remove', 'rm', 'off', 'disable'].includes(sub) && target) {
-      const res = await removeSkill(root, target);
-      console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-    } else if (['create', 'new'].includes(sub) && target) {
-      const desc = args.slice(2).join(' ');
-      const res = await createLocalSkill(root, target, desc);
-      console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-    } else {
-      console.log('Usage: skill add <name> | skill remove <name> | skill create <name> [desc] | skill global on/off <name>');
-    }
-  } else if (['mcp', 'mcps'].includes(c)) {
-    const sub = (args[0] || '').toLowerCase();
-    const target = args[1];
-
-    if (sub === 'global') {
-      const gAct = (args[1] || '').toLowerCase();
-      const gTarget = args[2];
-      if (['on', 'enable'].includes(gAct) && gTarget) {
-        const res = await enableGlobalMcp(gTarget);
-        console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-      } else if (['off', 'disable'].includes(gAct) && gTarget) {
-        const res = await disableGlobalMcp(gTarget);
-        console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-      } else if (['rm', 'remove', 'delete'].includes(gAct) && gTarget) {
-        const res = await removeGlobalMcp(gTarget);
-        console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-      } else {
-        console.log('Usage: mcp global on <srv> | mcp global off <srv> | mcp global rm <srv>');
-      }
-    } else if (['on', 'enable'].includes(sub) && target) {
-      const res = await enableMcp(root, target);
-      console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-    } else if (['off', 'disable'].includes(sub) && target) {
-      const res = await disableMcp(root, target);
-      console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-    } else if (['rm', 'remove', 'delete'].includes(sub) && target) {
-      const res = await removeMcp(root, target);
-      console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
-    } else if (['add', 'register'].includes(sub) && target && args[2]) {
-      await registerMcpInCatalog(target, { command: args[2], args: args.slice(3) });
-      await enableMcp(root, target);
-      console.log(colorize(`✅ Registered in catalog and enabled in workspace: ${target}`, COLORS.GREEN));
-    } else {
-      console.log('Usage: mcp on <srv> | mcp off <srv> | mcp rm <srv> | mcp global on/off/rm <srv>');
-    }
-  } else if (c === 'doctor') {
-    await runDoctor(root);
-  } else if (c === 'heal') {
-    const actions = await healWorkspace(root);
-    actions.forEach(a => console.log(colorize(`• ${a}`, COLORS.GREEN)));
-    console.log(colorize('✅ Workspace healed and reconciled across all harnesses.', COLORS.GREEN));
-  } else if (['clean-global', 'cleanglobal'].includes(c)) {
-    const isSkills = args.includes('--skills') || args.includes('skills');
-    const isMcp = args.includes('--mcp') || args.includes('mcp');
-    const isAll = args.includes('--all') || args.includes('all');
-    const res = await cleanGlobal({
-      skills: isSkills ? true : (isMcp ? false : true),
-      mcp: isMcp ? true : (isSkills ? false : true),
-      all: isAll
-    });
-    res.actions.forEach(a => console.log(colorize(`• ${a}`, COLORS.GREEN)));
-  } else if (['agent', 'agents', 'subagent', 'subagents'].includes(c)) {
-    const sub = (args[0] || '').toLowerCase();
-    if (['list', 'status', ''].includes(sub)) {
-      await printSubagents(root);
-    } else {
-      console.log('Usage: harness agent list');
-    }
-  } else if (c === 'ui') {
-    launchUi(root);
-  } else {
-    console.log(`Unknown command: "${cmd}". Type 'help' for available commands.`);
-  }
-
-  return true;
-}
+import { findWorkspaceRoot, getWorkspacePaths, ensureWorkspaceDirs } from '../src/workspace';
+import { printHelp } from '../src/cli-printers';
+import { executeCliCommand } from './cli-commands';
 
 async function startRepl(workspaceRoot: string): Promise<void> {
   const { name, root } = getWorkspacePaths(workspaceRoot);
@@ -160,7 +26,7 @@ async function startRepl(workspaceRoot: string): Promise<void> {
       const line = (await rl.question(`${COLORS.BOLD}[harness: ${name}] > ${COLORS.RESET}`)).trim();
       if (!line) continue;
       const [cmd, ...args] = line.split(/\s+/);
-      const keepRunning = await handleCommand(cmd, args, root);
+      const keepRunning = await executeCliCommand(cmd, args, root);
       if (!keepRunning) {
         rl.close();
         process.exit(0);
@@ -171,8 +37,6 @@ async function startRepl(workspaceRoot: string): Promise<void> {
       process.exit(0);
     }
   }
-  rl.close();
-  process.exit(0);
 }
 
 async function main(): Promise<void> {
@@ -191,7 +55,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  await handleCommand(cmd, subArgs, workspaceRoot);
+  await executeCliCommand(cmd, subArgs, workspaceRoot);
 }
 
 main().catch(err => {

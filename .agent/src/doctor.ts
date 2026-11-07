@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { GLOBAL_ZCODE_CONFIG } from './config';
 import { ensureWorkspaceDirs, ADAPTER_SYMLINKS, reconcileWorkspaceAdapters } from './workspace';
+import { ensureSkillInvocable } from './catalog';
 import { listGlobalActiveSkills } from './skills-global';
 import { cleanGlobal } from './clean-global';
 import type { AuditResult, AuditIssue } from './types';
@@ -103,7 +104,7 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
   if (fs.existsSync(dshMcp)) {
     issues.push({
       severity: 'error',
-      message: 'Found poisonous adapter .dsh/mcp.json! Causes DSH toolbox to bypass mcptoon and double-mount raw MCP tools. Run `harness heal` to prune.'
+      message: 'Found poisonous adapter .dsh/mcp.json! Causes DSH toolbox to double-mount raw MCP tools. Run `harness heal` to prune.'
     });
   }
 
@@ -142,17 +143,23 @@ export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
   await fsp.mkdir(paths, { recursive: true });
   const actions = await reconcileWorkspaceAdapters(root);
 
-  // Prune broken skill symlinks in .agents/skills
+  // Prune broken skill symlinks in .agents/skills & sanitize invocation policy
   const skillsDir = path.join(root, '.agents', 'skills');
   if (fs.existsSync(skillsDir)) {
     try {
       const entries = await fsp.readdir(skillsDir, { withFileTypes: true });
       for (const entry of entries) {
+        const p = path.join(skillsDir, entry.name);
         if (entry.isSymbolicLink()) {
-          const p = path.join(skillsDir, entry.name);
           if (!fs.existsSync(p)) {
             await fsp.unlink(p).catch(() => {});
             actions.push(`Pruned dead skill link: ${entry.name}`);
+          } else {
+            await ensureSkillInvocable(p);
+          }
+        } else if (entry.isDirectory()) {
+          if (await ensureSkillInvocable(p)) {
+            actions.push(`Sanitized skill invocation policy: ${entry.name}`);
           }
         }
       }

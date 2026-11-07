@@ -6,12 +6,36 @@ import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_MCPS_FILE } from '
 import type { McpServerConfig, McpCatalog } from './types';
 
 /**
+ * Ensures SKILL.md does not contain frontmatter flags that hide the skill
+ * from slash command search (user-invocable: false) or model catalog (disable-model-invocation: true).
+ */
+export async function ensureSkillInvocable(skillDir: string): Promise<boolean> {
+  const mdPath = path.join(skillDir, 'SKILL.md');
+  if (!fs.existsSync(mdPath)) return false;
+  try {
+    const content = await fsp.readFile(mdPath, 'utf8');
+    if (content.includes('user-invocable: false') || content.includes('disable-model-invocation: true')) {
+      const lines = content.split('\n');
+      const filtered = lines.filter(l => !l.startsWith('user-invocable:') && !l.startsWith('disable-model-invocation:'));
+      await fsp.writeFile(mdPath, filtered.join('\n'), 'utf8');
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Copies a skill directory into central catalog (~/.agents/catalog/skills/) if not already there.
  */
 export async function syncSkillToCatalog(sourcePath: string, skillName: string): Promise<boolean> {
   try {
     const targetDir = path.join(GLOBAL_CATALOG_SKILLS_DIR, skillName);
-    if (fs.existsSync(path.join(targetDir, 'SKILL.md'))) return true;
+    if (fs.existsSync(path.join(targetDir, 'SKILL.md'))) {
+      await ensureSkillInvocable(targetDir);
+      return true;
+    }
 
     await fsp.mkdir(GLOBAL_CATALOG_SKILLS_DIR, { recursive: true });
     // If source is a symlink, resolve real path so we copy actual content
@@ -19,6 +43,7 @@ export async function syncSkillToCatalog(sourcePath: string, skillName: string):
     if (!fs.existsSync(path.join(realSource, 'SKILL.md'))) return false;
 
     await fsp.cp(realSource, targetDir, { recursive: true, dereference: true });
+    await ensureSkillInvocable(targetDir);
     return true;
   } catch {
     return false;

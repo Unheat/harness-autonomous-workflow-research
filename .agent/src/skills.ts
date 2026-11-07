@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR } from './config';
+import { ensureSkillInvocable } from './catalog';
 import { getWorkspacePaths, ensureWorkspaceDirs } from './workspace';
 import type { LocalSkillInfo, OperationResult, SkillRemoveResult, SkillCreateResult } from './types';
 
@@ -83,6 +84,7 @@ export async function addSkill(workspaceRoot: string, rawSkillName: string): Pro
   if (fs.existsSync(dormantTarget)) {
     try {
       await fsp.rename(dormantTarget, localTarget);
+      await ensureSkillInvocable(localTarget);
       return { success: true, message: `Enabled local skill "${skillName}" (restored from dormant).` };
     } catch (err: any) {
       return { success: false, message: `Failed to restore dormant skill: ${err.message}` };
@@ -99,6 +101,7 @@ export async function addSkill(workspaceRoot: string, rawSkillName: string): Pro
   if (fs.existsSync(catalogSource)) {
     try {
       await fsp.symlink(catalogSource, localTarget);
+      await ensureSkillInvocable(catalogSource);
       return { success: true, message: `Enabled skill "${skillName}" (symlinked from catalog).` };
     } catch (err: any) {
       return { success: false, message: `Failed to create symlink: ${err.message}` };

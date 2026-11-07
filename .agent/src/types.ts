@@ -104,4 +104,7 @@ export interface SubagentInfo {
   model?: string;
   color?: string;
   thoughtLevel?: string;
+  isActive?: boolean;
+  isDormant?: boolean;
 }
+

@@ -5,7 +5,7 @@ import os from 'node:os';
 
 import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_ZCODE_CONFIG } from './config';
 import { listLocalSkills } from './skills';
-import { getCatalogSkills, getSkillDescription } from './catalog';
+import { getCatalogSkills, getSkillDescription, syncSkillToCatalog } from './catalog';
 import type { EffectiveSkillInfo, SkillScope, OperationResult } from './types';
 
 export interface GlobalActiveSkill {
@@ -33,49 +33,27 @@ export async function listGlobalActiveSkills(): Promise<GlobalActiveSkill[]> {
 
   const activeMap = new Map<string, GlobalActiveSkill>();
 
-  // 1. Check ~/.zcode/skills/ (highest user priority in ZCode)
-  if (fs.existsSync(zcodeSkillsDir)) {
-    try {
-      const entries = await fsp.readdir(zcodeSkillsDir, { withFileTypes: true });
-      for (const e of entries) {
-        if (e.isDirectory() || e.isSymbolicLink()) {
-          const md = path.join(zcodeSkillsDir, e.name, 'SKILL.md');
-          if (fs.existsSync(md)) {
-            activeMap.set(e.name, { name: e.name, source: 'zcode_user', path: md });
-          }
-        }
-      }
-    } catch {}
-  }
+  const globalDirs: { dir: string; source: 'zcode_user' | 'claude_user' | 'agents_global' }[] = [
+    { dir: path.join(home, '.zcode', 'skills'), source: 'zcode_user' },
+    { dir: path.join(home, '.claude', 'skills'), source: 'claude_user' },
+    { dir: path.join(home, '.cursor', 'skills'), source: 'agents_global' },
+    { dir: path.join(home, '.codex', 'skills'), source: 'agents_global' },
+    { dir: GLOBAL_SKILLS_DIR, source: 'agents_global' }
+  ];
 
-  // 2. Check ~/.claude/skills/ (user scope in Claude Code)
-  if (fs.existsSync(claudeSkillsDir)) {
+  for (const { dir, source } of globalDirs) {
+    if (!fs.existsSync(dir)) continue;
     try {
-      const entries = await fsp.readdir(claudeSkillsDir, { withFileTypes: true });
+      const entries = await fsp.readdir(dir, { withFileTypes: true });
       for (const e of entries) {
         if (e.isDirectory() || e.isSymbolicLink()) {
-          const md = path.join(claudeSkillsDir, e.name, 'SKILL.md');
-          if (fs.existsSync(md) && !activeMap.has(e.name)) {
-            activeMap.set(e.name, { name: e.name, source: 'claude_user', path: md });
-          }
-        }
-      }
-    } catch {}
-  }
-
-  // 3. Check ~/.agents/skills/ that are NOT disabled in ZCode config
-  if (fs.existsSync(GLOBAL_SKILLS_DIR)) {
-    try {
-      const entries = await fsp.readdir(GLOBAL_SKILLS_DIR, { withFileTypes: true });
-      for (const e of entries) {
-        if (e.isDirectory() || e.isSymbolicLink()) {
-          const md = path.join(GLOBAL_SKILLS_DIR, e.name, 'SKILL.md');
+          const md = path.join(dir, e.name, 'SKILL.md');
           if (fs.existsSync(md)) {
             let canonical = md;
             try { canonical = fs.realpathSync(md); } catch {}
             const isDisabled = disabledMap[canonical]?.enable === false || disabledMap[md]?.enable === false;
             if (!isDisabled && !activeMap.has(e.name)) {
-              activeMap.set(e.name, { name: e.name, source: 'agents_global', path: md });
+              activeMap.set(e.name, { name: e.name, source, path: md });
             }
           }
         }
@@ -148,19 +126,47 @@ export async function enableGlobalSkill(skillName: string): Promise<OperationRes
     source = path.join(GLOBAL_SKILLS_DIR, skillName);
   }
   if (!fs.existsSync(path.join(source, 'SKILL.md'))) {
+    const cSource = path.join(claudeSkillsDir, skillName);
+    const zSource = path.join(zcodeSkillsDir, skillName);
+    if (fs.existsSync(path.join(cSource, 'SKILL.md'))) {
+      await syncSkillToCatalog(cSource, skillName);
+      source = path.join(GLOBAL_CATALOG_SKILLS_DIR, skillName);
+    } else if (fs.existsSync(path.join(zSource, 'SKILL.md'))) {
+      await syncSkillToCatalog(zSource, skillName);
+      source = path.join(GLOBAL_CATALOG_SKILLS_DIR, skillName);
+    }
+  }
+
+  if (!fs.existsSync(path.join(source, 'SKILL.md'))) {
     return { success: false, message: `Skill "${skillName}" not found in catalog.` };
   }
 
   await fsp.mkdir(zcodeSkillsDir, { recursive: true });
   await fsp.mkdir(claudeSkillsDir, { recursive: true });
+  await fsp.mkdir(GLOBAL_SKILLS_DIR, { recursive: true });
 
-  const zTarget = path.join(zcodeSkillsDir, skillName);
-  const cTarget = path.join(claudeSkillsDir, skillName);
+  const targets = [
+    path.join(zcodeSkillsDir, skillName),
+    path.join(claudeSkillsDir, skillName),
+    path.join(GLOBAL_SKILLS_DIR, skillName)
+  ];
 
   try {
-    if (!fs.existsSync(zTarget)) await fsp.symlink(source, zTarget);
-    if (!fs.existsSync(cTarget)) await fsp.symlink(source, cTarget);
-    return { success: true, message: `Skill "${skillName}" enabled globally across ZCode & Claude.` };
+    for (const target of targets) {
+      const stat = await fsp.lstat(target).catch(() => null);
+      if (stat) {
+        if (stat.isSymbolicLink()) {
+          const currentLink = await fsp.readlink(target).catch(() => '');
+          if (currentLink === source) continue;
+          await fsp.unlink(target);
+        } else if (stat.isDirectory()) {
+          await syncSkillToCatalog(target, skillName);
+          await fsp.rm(target, { recursive: true, force: true });
+        }
+      }
+      await fsp.symlink(source, target);
+    }
+    return { success: true, message: `Skill "${skillName}" enabled globally across ZCode, Claude, and DSH.` };
   } catch (err: any) {
     return { success: false, message: `Failed to enable global skill: ${err.message}` };
   }
@@ -168,24 +174,36 @@ export async function enableGlobalSkill(skillName: string): Promise<OperationRes
 
 export async function disableGlobalSkill(skillName: string): Promise<OperationResult> {
   const home = os.homedir();
-  const zcodeSkillsDir = path.join(home, '.zcode', 'skills');
-  const claudeSkillsDir = path.join(home, '.claude', 'skills');
+  const targets = [
+    path.join(home, '.zcode', 'skills', skillName),
+    path.join(home, '.claude', 'skills', skillName),
+    path.join(home, '.cursor', 'skills', skillName),
+    path.join(home, '.codex', 'skills', skillName),
+    path.join(GLOBAL_SKILLS_DIR, skillName)
+  ];
 
-  const zTarget = path.join(zcodeSkillsDir, skillName);
-  const cTarget = path.join(claudeSkillsDir, skillName);
+  let disabledAny = false;
 
-  let unlinked = false;
-  try {
-    const zStat = await fsp.lstat(zTarget).catch(() => null);
-    if (zStat?.isSymbolicLink()) { await fsp.unlink(zTarget); unlinked = true; }
-    const cStat = await fsp.lstat(cTarget).catch(() => null);
-    if (cStat?.isSymbolicLink()) { await fsp.unlink(cTarget); unlinked = true; }
-  } catch {}
+  for (const target of targets) {
+    try {
+      const stat = await fsp.lstat(target).catch(() => null);
+      if (!stat) continue;
+
+      if (stat.isSymbolicLink()) {
+        await fsp.unlink(target);
+        disabledAny = true;
+      } else if (stat.isDirectory()) {
+        await syncSkillToCatalog(target, skillName);
+        await fsp.rm(target, { recursive: true, force: true });
+        disabledAny = true;
+      }
+    } catch {}
+  }
 
   return {
-    success: true,
-    message: unlinked
-      ? `Skill "${skillName}" disabled globally (unlinked from ~/.zcode and ~/.claude).`
-      : `Skill "${skillName}" was not active as a global symlink.`
+    success: disabledAny,
+    message: disabledAny
+      ? `Skill "${skillName}" disabled globally across all harnesses.`
+      : `Skill "${skillName}" was not active as a global skill.`
   };
 }
