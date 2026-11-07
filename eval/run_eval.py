@@ -200,6 +200,10 @@ def main():
     if not api_key:
         api_key = os.environ.get("OPENAI_API_KEY", "")
 
+    if args.backend == "http" and not api_key:
+        print("Error: API key required for HTTP backend. Provide via --api-key or ZCODE_9ROUTER_API_KEY / OPENAI_API_KEY environment variable.", file=sys.stderr)
+        sys.exit(1)
+
     gold_items = {item["id"]: item for item in gold_data.get("items", [])}
     pkg_files = sorted(packages_dir.glob("*.md"))
 

@@ -11,6 +11,8 @@ worktrees/
 scratch/
 
 # Environments, Secrets & Configs
+*.env
+**/*.env
 .env
 .env.*
 .env.local
@@ -18,6 +20,10 @@ scratch/
 **/.env.*
 !**/.env.example
 *.local
+*.key
+**/*.key
+credentials.json
+**/credentials.json
 
 # Logs & Debug
 *.log
