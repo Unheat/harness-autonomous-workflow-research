@@ -6,6 +6,26 @@ code tools:
 - avoid use plain `grep`, only use as a last fallback resort when neither can complete the search.
 
 actively use git, write, update, modify spec as a standard SWE, no need to wait for user prompt every step 
+
+---
+
+# 🗺️ Triple-Project Topology & Repository Map (CRITICAL ARCHITECTURAL CONTEXT)
+
+**Notice for all AI Agents**: This development workspace interacts with **3 distinct, decoupled projects**. Each project has its own dedicated GitHub repository, purpose, and installation lifecycle. Do NOT conflate them:
+
+| Project | Role & Purpose | Local Workspace | GitHub Repository |
+|---|---|---|---|
+| **1. Universal Harness Manager + `harness-protocol`** | Cross-harness governance CLI (`harness`/`agn`), 3-tier catalog, Web UI dashboard, subagent token shielding, and companion `@harness-protocol` skill. | `/Users/dangtruongan/study/workflow` | [Unheat/harness-autonomous-workflow-research](https://github.com/Unheat/harness-autonomous-workflow-research) |
+| **2. Enhanced Search DSH (`enhanced-search-DSH`)** | Standalone DSH Web plugin (Universal Palette Command Center with ZCode scope pills, multi-token search, history chips, and workspace navigation fixes). | `/Users/dangtruongan/study/dsh-universal-palette` | [Unheat/enhanced-search-DSH](https://github.com/Unheat/enhanced-search-DSH) |
+| **3. Autonomous SWE Workflow (`swe-workflow`)** | Standalone, portable SWE workflow skill suite containing `/swe-workflow`, dual-gate judges (`/judge-plan`, `/judge-pr`), F2P reproduction, and evals. | `/Users/dangtruongan/study/swe-workflow` | [Unheat/swe-workflow](https://github.com/Unheat/swe-workflow) |
+
+### Boundary & Dependency Rules:
+1. **`enhanced-search-DSH` is strictly a DSH Web plugin**: It lives in its own repo with pre-built distribution files in `lib/`. Never mix Harness Manager core logic or SWE workflow prompt templates into it.
+2. **`harness-manager` includes the `@harness-protocol` skill**: The skill instructs agents on how to use `harness-manager` CLI (`harness status`, `harness skill add`, `harness doctor`). They ship together.
+3. **`swe-workflow` is completely standalone**: It works in any git repository without requiring `harness-manager`. It has its own dedicated repo and 1-line curl installer.
+
+---
+
 # Project Agent Guidelines: Universal Workflow Engine
 
 This repository designs, standardizes, and implements the **Universal Cross-Harness Agentic Workflow Engine** (portable across Claude Code, ZCode, Cursor, Codex, DeepSeek Harness, OpenCode).
