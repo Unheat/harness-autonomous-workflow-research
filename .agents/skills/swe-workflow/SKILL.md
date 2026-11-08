@@ -55,10 +55,18 @@ Derived from Andrej Karpathy's analysis of LLM coding failure modes. These 4 rul
 
 Before writing any code or tests, discover the local repository's invariants:
 
-1. **Read Repo Guidelines & Constraints** (if present):
-   - `AGENTS.md` / `CLAUDE.md`: Architecture standards, banned tools/libraries, specific conventions.
-   - `CONTRIBUTING.md`: Branch naming, commit formats, AI disclosure policies.
-   - `.github/pull_request_template.md`: Checklists and required sections for final PR.
+1. **Discover Repository Guidelines & Non-Code Obligations**:
+   *Every repository defines its own rules, contribution protocols, and deliverables. Common filenames below are illustrative examples, NOT an exhaustive list.*
+   - **Agent Directives**: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.cursor/rules/`, `.github/copilot-instructions.md`, or harness presets.
+   - **Contribution & Development Guides**: Look for whatever documents contributor expectations (e.g. `CONTRIBUTING.md`, `docs/contributing.rst`, `DEVELOPMENT.md`, `HACKING.md`, `README.md`).
+   - **PR Templates & Checklists**: Locate PR templates wherever placed (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/*.md`, `pull_request_template.md`, etc.).
+   - **Extract Concrete Mandatory Obligations**:
+     - *Documentation*: Does the repo require updating user docs, API docs, or tooling specs (e.g. updating `SKILL.md` when agent tools/flags change)?
+     - *Release notes / Changelog*: Does the repo require a `CHANGELOG.md` entry, `whatsnew/` fragment, or towncrier note?
+     - *Artifact codegen*: Does the repo require regenerating types, cheatsheets, protobuf, or schema manifests?
+     - *PR checklist items*: Specific issue reference keywords (`closes #xxxx`), test pass disclosures, or template sections.
+   - **Record Discovered Policy Paths**: Note exact relative paths (e.g. `docs/CONTRIBUTING.md`, `.github/pull_request_template.md`). You will pass these to the judges.
+
 2. **Resolve the Test Runner & Commands (Multi-Tier Testing)**:
    - Inspect `package.json`, `Makefile`, `pyproject.toml`, or `Cargo.toml`.
    - Distinguish package manager from test runner:
@@ -104,14 +112,21 @@ Before writing any code or tests, discover the local repository's invariants:
 *(Enforces Principles 1 & 2: Think Before Coding & Simplicity First)*
 
 1. **Draft Plan** (`.workflow/plan.md`):
-   Document a concise (15–25 lines) implementation blueprint:
+   Document a concise (20–30 lines) implementation blueprint:
    - **Grounded Cause**: Exact root cause mechanism (why it broke, not just what failed).
    - **Bounded Scope**: Exact list of files to touch. Explicit `Out of scope:` list.
    - **Approach**: The minimal, surgical change addressing the root cause.
    - **Decisive Test**: Command and expected output proving success.
+   - **Repo Rules & Custom Deliverables**:
+     - *Discovered Policy Files*: List exact paths found in Phase 0 (e.g. `docs/CONTRIBUTING.md`, `.github/pull_request_template.md`).
+     - *Mandatory Non-Code Deliverables*: Specific items required by repo rules (e.g. `SKILL.md` update, docs update, `whatsnew/` entry, cheatsheet regen).
+     - *Recorded Deviations*: Any repo rule explicitly not applicable to this task, with justification.
 2. **Invoke `judge-plan` Subagent**:
-   - Dispatch `judge-plan` (1-turn read-only reviewer) passing `plan.md` and reproduction evidence.
-   - It grades 4 criteria: `grounded-cause`, `bounded-scope`, `startable`, `decisive-test`.
+   - Dispatch `judge-plan` (1-turn read-only reviewer) passing:
+     - `plan.md` content
+     - Reproduction evidence (F2P Red test command and output)
+     - **Discovered Repository Policy Paths & Extracted Obligations** (pass the exact file paths and obligations discovered in Phase 0 so `judge-plan` can read them directly without burning tokens re-scanning the workspace).
+   - It grades 4 criteria: `grounded-cause`, `bounded-scope` (verifying repo obligations are accounted for), `startable`, `decisive-test`.
 3. **Review Loop & Human Tie-Breaker**:
    - **If Approved**: Proceed directly to Phase 3.
    - **If Rejected (Round 1)**: Review actionable feedback. Revise `plan.md` to address specific critique and re-test with `judge-plan`.
@@ -151,10 +166,15 @@ Before writing any code or tests, discover the local repository's invariants:
      - Remove all debug statements (`console.log`, `print`, `debugger`).
      - Remove all commented-out trial code or unused imports.
      - Eliminate cosmetic reformatting or unrelated whitespace churn.
+     - Confirm all mandatory repo deliverables from `plan.md` (docs, changelog/whatsnew, codegen, sync files) are implemented.
 2. **Invoke `judge-pr` Subagent**:
-   - Dispatch `judge-pr` (1-turn read-only reviewer) against the uncommitted/committed branch diff.
-   - It checks: `plan-fidelity`, `clean-diff`, `decisive-testing`, `repo-checks`.
-   - If review debris or unannounced scope creep is caught -> clean the diff immediately.
+   - Dispatch `judge-pr` (1-turn read-only reviewer) passing:
+     - Uncommitted and committed branch diff
+     - Draft PR description & checklist
+     - Verified test evidence (F2P Green test output and P2P suite results)
+     - **Discovered Repository Policy Paths & Extracted Obligations** (pass the exact file paths and obligations from Phase 0 so `judge-pr` reads them directly without re-exploring).
+   - It checks: `plan-fidelity` (verifying all repo rules, template checklists, and non-code deliverables are satisfied or explicitly deviated), `clean-diff`, `decisive-testing`, `repo-checks`.
+   - If review debris, missing repo deliverables, or unannounced scope creep is caught -> clean the diff and fulfill obligations immediately.
 3. **Git Checkpoint 3** (if cleanups were made):
    ```bash
    git commit -am "refactor: clean diff and formatting for <topic>"
@@ -167,7 +187,8 @@ Before writing any code or tests, discover the local repository's invariants:
 1. **Compile Evidence Report** (`.workflow/evidence.md`):
    - Table of guarantees: what was broken, how it was reproduced, decisive test command, verified before/after exit codes.
 2. **Draft PR Preparation**:
-   - Populate `.workflow/pr_draft.md` adhering to the repository's `.github/pull_request_template.md` (or standard Conventional PR format).
+   - Populate `.workflow/pr_draft.md` adhering strictly to the **repository's discovered PR template format** (or standard Conventional PR format if none exists).
+   - Fulfill all template sections (e.g. `closes #xxxx`, checklist items, type annotations disclosure, whatsnew/docs confirmation).
    - State summary of changes, reproduction steps, testing evidence, and explicitly mark as **Draft PR**.
 3. **Handoff**:
    - Notify the user with:

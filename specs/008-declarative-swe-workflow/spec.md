@@ -27,15 +27,17 @@ Prompt guidance is portable; native tools/hooks/permissions require harness mapp
 - **Single Source of Truth**: The workflow logic lives in `.agents/skills/swe-workflow/SKILL.md`.
 
 ### Pillar 2: General Enough for Any Repo, Specific Enough for SWE Standards
-- **General (Auto-Discovery)**: At startup, automatically discovers repo-specific rules:
-  - `AGENTS.md` / `CLAUDE.md`: Architecture standards and project-specific constraints.
-  - `CONTRIBUTING.md`: Commit conventions, branch naming, and AI disclosure rules.
-  - `.github/pull_request_template.md`: Checklist requirements for final PR submission.
-  - Build manifests (`package.json`, `Makefile`, `pyproject.toml`): Resolves test runner automatically (distinguishing `bun test` vs `bun run test`, `pnpm test`, `pytest`).
+- **General (Generalized Invariant Discovery)**: At startup, dynamically discovers repo-specific rules rather than assuming rigid filenames:
+  - Agent Directives: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.cursor/rules/`, `.github/copilot-instructions.md`, or harness presets.
+  - Contribution & Development Guidelines: Discovers wherever the repo documents development rules (e.g. `CONTRIBUTING.md`, `docs/contributing.rst`, `DEVELOPMENT.md`, `HACKING.md`, or `README.md`).
+  - PR Templates & Checklists: Discovers PR templates wherever placed (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/*.md`, `pull_request_template.md`, etc.).
+  - Domain-Specific Sync Rules: Discovers repo-specific obligations (e.g. keeping `SKILL.md` updated when agent CLI flags change, updating `docs/` on public API changes, adding `whatsnew/` fragments, or regenerating codegen/cheatsheets).
+  - Build manifests (`package.json`, `Makefile`, `pyproject.toml`, `Cargo.toml`): Resolves test runner automatically (distinguishing `bun test` vs `bun run test`, `pnpm test`, `pytest`).
 - **Specific (Rigorous SWE Standards)**:
   - Invariant 1: Fail-to-Pass (F2P) test must FAIL before any production code is touched.
   - Invariant 2: Karpathy 4 Principles (Think before coding, simplicity first, surgical changes, goal-driven execution).
   - Invariant 3: Calibrated Dual-Gate Review (`judge-plan` and `judge-pr`).
+- **Context Packet Handoff (Zero Token Waste)**: Main agent discovers policy files once during Phase 0 and passes their exact file paths and extracted obligations directly in the brief to `judge-plan` and `judge-pr`. Judges inspect those paths directly without burning tokens re-scanning the tree.
 
 ### Pillar 3: Clean I/O Boundary Contract
 - **Input**:
@@ -83,8 +85,10 @@ In a fully autonomous unattended mode (e.g. background DSH SuperAgent queue or G
 ---
 
 ## Requirements
-1. Main loads the shared SWE skill and consumer project's `AGENTS.md`. Consumer
-   docs/skills requirements stay in that project, not hardcoded in the core.
+1. Main loads the shared SWE skill and consumer project's `AGENTS.md` (or equivalent instructions).
+   Consumer docs/skills requirements stay in that project, not hardcoded in the core.
+   Main passes discovered policy file paths and extracted non-code obligations directly
+   in the brief to helper and judge subagents, avoiding repetitive workspace re-scanning.
 2. Routing is proportional: direct targeted inspection for known/narrow tasks;
    explorer for cross-file discovery; research for external facts/design uncertainty.
 3. Evidence fits task: bug symptom reproduction before repair; feature acceptance
