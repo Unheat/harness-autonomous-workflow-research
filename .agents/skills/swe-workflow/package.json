@@ -1,0 +1,19 @@
+{
+  "name": "@unheat/swe-workflow",
+  "version": "1.0.0",
+  "description": "Disciplined autonomous SWE workflow engine combining Karpathy principles, F2P test reproduction, and calibrated dual-gate judge verification.",
+  "scripts": {
+    "setup": "bash setup.sh",
+    "test": "python3 eval/run_eval.py"
+  },
+  "keywords": [
+    "skills",
+    "swe-workflow",
+    "coding-agent",
+    "karpathy",
+    "swe-bench",
+    "subagents"
+  ],
+  "author": "UnHeat",
+  "license": "MIT"
+}

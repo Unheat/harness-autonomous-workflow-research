@@ -42,12 +42,14 @@ fi
 echo "🤖 [2/4] Registering subagents for cross-harness discovery..."
 mkdir -p .agent/agents
 mkdir -p .agents/subagents
+mkdir -p .claude/agents
 
 for agent_file in "$SCRIPT_DIR/agents"/*.md; do
   if [ -f "$agent_file" ]; then
     base_name="$(basename "$agent_file")"
     cp "$agent_file" ".agent/agents/$base_name"
     cp "$agent_file" ".agents/subagents/$base_name"
+    cp "$agent_file" ".claude/agents/$base_name"
     echo "  -> Registered agent: $base_name"
   fi
 done

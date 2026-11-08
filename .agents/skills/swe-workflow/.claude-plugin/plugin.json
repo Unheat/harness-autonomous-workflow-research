@@ -1,0 +1,21 @@
+{
+  "name": "swe-workflow",
+  "description": "Disciplined autonomous SWE workflow engine combining Karpathy principles, F2P test reproduction, and calibrated dual-gate judge verification.",
+  "version": "1.0.0",
+  "author": {
+    "name": "UnHeat",
+    "url": "https://github.com/Unheat"
+  },
+  "homepage": "https://github.com/Unheat/harness-autonomous-workflow-research",
+  "repository": "https://github.com/Unheat/harness-autonomous-workflow-research",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "swe-workflow",
+    "tdd",
+    "karpathy",
+    "judge-plan",
+    "judge-pr",
+    "autonomous-agent"
+  ]
+}

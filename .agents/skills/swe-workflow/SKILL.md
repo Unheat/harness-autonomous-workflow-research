@@ -55,6 +55,13 @@ Derived from Andrej Karpathy's analysis of LLM coding failure modes. These 4 rul
 
 Before writing any code or tests, discover the local repository's invariants:
 
+0. **Self-Bootstrapping Preflight (Zero-Config Standalone Setup)**:
+   If secondary subagents (`judge-plan`, `judge-pr`, `explore-code`, `research`) are not yet registered in the active harness agent directories (`.agent/agents/` or `.claude/agents/`), run the self-contained setup script:
+   ```bash
+   bash .agents/skills/swe-workflow/setup.sh 2>/dev/null || true
+   ```
+   *(Automatically registers the 4 subagents for cross-harness discovery and sets up the universal pre-push hook. Enables swe-workflow to run as a 100% standalone skill in any repository).*
+
 1. **Discover Repository Guidelines & Non-Code Obligations**:
    *Every repository defines its own rules, contribution protocols, and deliverables. Common filenames below are illustrative examples, NOT an exhaustive list.*
    - **Agent Directives**: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `.cursor/rules/`, `.github/copilot-instructions.md`, or harness presets.
