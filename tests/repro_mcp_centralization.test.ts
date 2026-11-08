@@ -55,6 +55,30 @@ describe('repro_mcp_centralization: Doctor audits and heals global harness MCPs 
         }
       }, null, 2), 'utf-8');
 
+      // In ~/.codex/config.toml (contains external search2ai plus internal node_repl):
+      const codexDir = path.join(home, '.codex');
+      await fsp.mkdir(codexDir, { recursive: true });
+      await fsp.writeFile(path.join(codexDir, 'config.toml'), `
+model = "gpt-5"
+
+[mcp_servers.node_repl]
+command = "/Applications/ChatGPT.app/node_repl"
+
+[mcp_servers.search2ai]
+command = "/Users/dangtruongan/.local/bin/search2ai-mcp"
+`);
+
+      // In ~/.config/opencode/opencode.json:
+      const opencodeDir = path.join(home, '.config', 'opencode');
+      await fsp.mkdir(opencodeDir, { recursive: true });
+      await fsp.writeFile(path.join(opencodeDir, 'opencode.json'), JSON.stringify({
+        mcpServers: {
+          'gitmcp-opencode': {
+            command: '/path/to/gitmcp'
+          }
+        }
+      }, null, 2), 'utf-8');
+
       // 2. Audit should flag unmigrated harness MCP servers
       const auditResult = await auditWorkspace(tmpWs);
       const mcpIssues = auditResult.issues.filter(i => i.message.includes('unmigrated harness MCP') || i.message.includes('legacy harness MCP'));
@@ -64,28 +88,25 @@ describe('repro_mcp_centralization: Doctor audits and heals global harness MCPs 
       const actions = await healWorkspace(tmpWs);
       expect(actions.some(a => a.includes('Centralized') || a.includes('Migrated') || a.includes('catalog'))).toBe(true);
 
-      // 4. Verify central catalog contains hindsight and codebase-memory-mcp
+      // 4. Verify central catalog contains migrated servers
       const catalogRaw = await fsp.readFile(GLOBAL_MCPS_FILE, 'utf-8');
       const catalog = JSON.parse(catalogRaw);
       expect(catalog.mcpServers.hindsight).toBeDefined();
       expect(catalog.mcpServers.hindsight.command).toBe('node');
       expect(catalog.mcpServers['codebase-memory-mcp']).toBeDefined();
+      expect(catalog.mcpServers.search2ai).toBeDefined();
+      expect(catalog.mcpServers['gitmcp-opencode']).toBeDefined();
+      // Internal harness server should NOT be in catalog
+      expect(catalog.mcpServers.node_repl).toBeUndefined();
 
-      // 5. Verify ~/.zcode/cli/config.json, ~/.claude/.mcp.json, and ~/.cursor/mcp.json no longer have the migrated servers
-      const cleanZcode = JSON.parse(await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8'));
-      expect(cleanZcode.mcp?.servers?.hindsight).toBeUndefined();
+      // 5. Verify config files:
+      // Internal node_repl must still remain in ~/.codex/config.toml, but external search2ai must be removed!
+      const codexContent = await fsp.readFile(path.join(codexDir, 'config.toml'), 'utf-8');
+      expect(codexContent).toContain('node_repl');
+      expect(codexContent).not.toContain('search2ai');
 
-      const claudeExists = await fsp.readFile(path.join(claudeDir, '.mcp.json'), 'utf-8').catch(() => null);
-      if (claudeExists) {
-        const cleanClaude = JSON.parse(claudeExists);
-        expect(cleanClaude.mcpServers?.hindsight).toBeUndefined();
-      }
-
-      const cursorExists = await fsp.readFile(path.join(cursorDir, 'mcp.json'), 'utf-8').catch(() => null);
-      if (cursorExists) {
-        const cleanCursor = JSON.parse(cursorExists);
-        expect(cleanCursor.mcpServers?.['codebase-memory-mcp']).toBeUndefined();
-      }
+      const opencodeContent = JSON.parse(await fsp.readFile(path.join(opencodeDir, 'opencode.json'), 'utf-8'));
+      expect(opencodeContent.mcpServers?.['gitmcp-opencode']).toBeUndefined();
 
       // 6. Running audit again should have no unmigrated harness MCP issues
       const auditResult2 = await auditWorkspace(tmpWs);

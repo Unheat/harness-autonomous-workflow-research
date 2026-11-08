@@ -16,6 +16,12 @@ export interface CleanGlobalOptions {
 
 export const DEFAULT_GLOBAL_SKILLS_WHITELIST = ['harness-protocol', 'agent-reach'];
 
+/**
+ * Harness built-in internal / system servers that MUST NEVER be migrated or stripped.
+ * Examples: Codex's internal node_repl bridge or native computer-use runtime.
+ */
+export const HARNESS_INTERNAL_SERVERS = new Set(['node_repl', 'computer-use']);
+
 export interface UnmigratedHarnessMcp {
   harness: string;
   filePath: string;
@@ -27,22 +33,31 @@ export interface UnmigratedHarnessMcp {
  * - ~/.zcode/cli/config.json (mcp.servers)
  * - ~/.claude/.mcp.json or ~/.claude/settings.json (mcpServers)
  * - ~/.cursor/mcp.json (mcpServers)
+ * - ~/.codex/config.toml (mcp_servers)
+ * - ~/.config/opencode/opencode.json (mcpServers)
  */
 export async function discoverUnmigratedHarnessMcps(): Promise<UnmigratedHarnessMcp[]> {
   const home = os.homedir();
   const results: UnmigratedHarnessMcp[] = [];
+
+  // Helper to filter out harness internal/system servers
+  const filterExternal = (servers: Record<string, any>) => {
+    return Object.fromEntries(
+      Object.entries(servers).filter(([name, cfg]) => {
+        if (HARNESS_INTERNAL_SERVERS.has(name)) return false;
+        return cfg && Object.keys(cfg).length > 0;
+      })
+    );
+  };
 
   // 1. ZCode: ~/.zcode/cli/config.json
   if (fs.existsSync(GLOBAL_ZCODE_CONFIG)) {
     try {
       const raw = await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8');
       const zcfg = JSON.parse(raw);
-      const servers = zcfg?.mcp?.servers || {};
-      const nonDormant = Object.fromEntries(
-        Object.entries(servers).filter(([_, cfg]: [string, any]) => cfg && Object.keys(cfg).length > 0)
-      );
-      if (Object.keys(nonDormant).length > 0) {
-        results.push({ harness: 'ZCode', filePath: GLOBAL_ZCODE_CONFIG, servers: nonDormant });
+      const servers = filterExternal(zcfg?.mcp?.servers || {});
+      if (Object.keys(servers).length > 0) {
+        results.push({ harness: 'ZCode', filePath: GLOBAL_ZCODE_CONFIG, servers });
       }
     } catch {}
   }
@@ -53,7 +68,7 @@ export async function discoverUnmigratedHarnessMcps(): Promise<UnmigratedHarness
     try {
       const raw = await fsp.readFile(claudeMcp, 'utf-8');
       const cfg = JSON.parse(raw);
-      const servers = cfg?.mcpServers || {};
+      const servers = filterExternal(cfg?.mcpServers || {});
       if (Object.keys(servers).length > 0) {
         results.push({ harness: 'Claude Code', filePath: claudeMcp, servers });
       }
@@ -66,11 +81,45 @@ export async function discoverUnmigratedHarnessMcps(): Promise<UnmigratedHarness
     try {
       const raw = await fsp.readFile(cursorMcp, 'utf-8');
       const cfg = JSON.parse(raw);
-      const servers = cfg?.mcpServers || {};
+      const servers = filterExternal(cfg?.mcpServers || {});
       if (Object.keys(servers).length > 0) {
         results.push({ harness: 'Cursor', filePath: cursorMcp, servers });
       }
     } catch {}
+  }
+
+  // 4. Codex: ~/.codex/config.toml ([mcp_servers])
+  const codexToml = path.join(home, '.codex', 'config.toml');
+  if (fs.existsSync(codexToml)) {
+    try {
+      const raw = await fsp.readFile(codexToml, 'utf-8');
+      const { TOML } = await import('bun');
+      const parsed: any = TOML.parse(raw);
+      const servers = filterExternal(parsed?.mcp_servers || {});
+      if (Object.keys(servers).length > 0) {
+        results.push({ harness: 'Codex', filePath: codexToml, servers });
+      }
+    } catch {}
+  }
+
+  // 5. OpenCode: ~/.config/opencode/opencode.json or ~/.opencode/opencode.json
+  const opencodeLocations = [
+    path.join(home, '.config', 'opencode', 'opencode.json'),
+    path.join(home, '.opencode', 'opencode.json'),
+    path.join(home, '.config', 'opencode', 'config.json')
+  ];
+  for (const loc of opencodeLocations) {
+    if (fs.existsSync(loc)) {
+      try {
+        const raw = await fsp.readFile(loc, 'utf-8');
+        const cfg = JSON.parse(raw);
+        const servers = filterExternal(cfg?.mcpServers || cfg?.mcp?.servers || {});
+        if (Object.keys(servers).length > 0) {
+          results.push({ harness: 'OpenCode', filePath: loc, servers });
+          break;
+        }
+      } catch {}
+    }
   }
 
   return results;
@@ -111,11 +160,39 @@ export async function centralizeHarnessMcps(): Promise<string[]> {
           await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify(zcfg, null, 2) + '\n', 'utf-8');
           actions.push(`Removed migrated MCP servers from ${item.harness} config (${path.basename(item.filePath)})`);
         }
+      } else if (item.filePath.endsWith('.toml')) {
+        // For TOML configs like ~/.codex/config.toml, surgical regex removal of migrated [mcp_servers.<name>] sections
+        let content = await fsp.readFile(item.filePath, 'utf-8');
+        let modified = false;
+        for (const name of Object.keys(item.servers)) {
+          // Matches [mcp_servers.<name>] and its subkeys until the next section header [xxx] or end of file
+          const sectionRegex = new RegExp(`\\[mcp_servers\\.${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\]]*\\][\\s\\S]*?(?=\\n\\[|$)`, 'g');
+          if (sectionRegex.test(content)) {
+            content = content.replace(sectionRegex, '');
+            modified = true;
+          }
+        }
+        if (modified) {
+          await fsp.writeFile(item.filePath, content, 'utf-8');
+          actions.push(`Removed migrated MCP servers from ${item.harness} config (${path.basename(item.filePath)})`);
+        }
       } else {
         const raw = await fsp.readFile(item.filePath, 'utf-8');
         const cfg = JSON.parse(raw);
+        let modified = false;
         if (cfg.mcpServers) {
-          cfg.mcpServers = {};
+          for (const name of Object.keys(item.servers)) {
+            delete cfg.mcpServers[name];
+            modified = true;
+          }
+        }
+        if (cfg.mcp && cfg.mcp.servers) {
+          for (const name of Object.keys(item.servers)) {
+            delete cfg.mcp.servers[name];
+            modified = true;
+          }
+        }
+        if (modified) {
           await fsp.writeFile(item.filePath, JSON.stringify(cfg, null, 2) + '\n', 'utf-8');
           actions.push(`Removed migrated MCP servers from ${item.harness} config (${path.basename(item.filePath)})`);
         }
