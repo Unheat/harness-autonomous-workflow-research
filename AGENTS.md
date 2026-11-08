@@ -2,7 +2,6 @@
 online:
 - use `search2ai` instead of default search engine when search for online resource
 code tools:
-- use `codebase-memory-mcp` to find code by behavior when you don’t know its name, or to trace callers, callees, and dependencies across files.
 - use `ripgrep` (`rg`) for exact text or regex searches, such as known identifiers, error strings, and config keys.
 - avoid use plain `grep`, only use as a last fallback resort when neither can complete the search.
 
