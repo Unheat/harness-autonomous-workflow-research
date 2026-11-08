@@ -21,6 +21,11 @@ The developer of this project is a beginner learning full-stack, web extension, 
 *   **Explain the "Why"**: When introducing technique, teachstack, etc for example (`IndexedDB`, `Offscreen Documents`, `postMessage`), Chrome Extension mechanisms, or React patterns, explain the reasoning, the constraints, and how they solve the problem.
 ## 1. Operating Model in this Repository
 
+- **Karpathy Principles (Core Invariants)**:
+  - **Think Before Coding**: Don't assume. Don't hide confusion. Surface tradeoffs. If multiple interpretations exist, present them rather than picking silently. If something is unclear, stop, name what is confusing, and ask. Never use silent workarounds or fake solutions to look correct.
+  - **Simplicity First**: Minimum code that solves the problem. Nothing speculative. No features beyond what was asked. No abstractions for single-use code. No unrequested "flexibility" or "configurability".
+  - **Surgical Changes**: Touch only what you must. Don't "improve" adjacent code, comments, or formatting. Don't refactor things that aren't broken. Match existing style.
+  - **Goal-Driven Execution**: Transform tasks into verifiable goals with tests first. Loop until verified with decisive before/after proof.
 - **PM & Lead SWE Dynamic**:
   - **User = Product Manager (PM)**: Sets vision, reviews UX, defines priorities, and probes edge cases.
   - **Agent = Lead Software Engineer (SWE)**: Proactively drives end-to-end engineering. Independently organizes milestones, maintains GitHub Spec Kit artifacts (`.specify/`), handles architectural edge cases, ensures 100% test coverage, and creates clean, atomic Git commits automatically without requiring micro-management.

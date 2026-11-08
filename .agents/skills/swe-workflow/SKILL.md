@@ -11,6 +11,34 @@ A disciplined, reproducible software engineering workflow for coding agents. It 
 
 ---
 
+## Core Invariants: Karpathy's 4 Principles
+
+Derived from Andrej Karpathy's analysis of LLM coding failure modes. These 4 rules govern every phase:
+
+1. **Think Before Coding**:
+   - Don't assume. Don't hide confusion. Surface tradeoffs.
+   - If multiple interpretations exist, present them rather than picking silently.
+   - If something is unclear, stop, name what is confusing, and ask.
+
+2. **Simplicity First**:
+   - Minimum code that solves the problem. Nothing speculative.
+   - No features beyond what was asked.
+   - No abstractions for single-use code.
+   - No "flexibility" or "configurability" that wasn't requested.
+   - If 200 lines could be 50, rewrite it.
+
+3. **Surgical Changes**:
+   - Touch only what you must. Clean up only your own mess.
+   - Don't "improve" adjacent code, comments, or formatting.
+   - Don't refactor things that aren't broken.
+   - Match existing style. Remove any orphaned variables/imports created by your changes.
+
+4. **Goal-Driven Execution**:
+   - Transform tasks into verifiable goals with tests first.
+   - Loop until verified with decisive before/after proof.
+
+---
+
 ## Operating Protocol & Boundaries
 
 - **One Hands-On Lead Engineer**: The active agent executes in the workspace/worktree directly (authoring tests and editing code). Secondary subagents (`explore-code`, `research`, `judge-plan`, `judge-pr`) are used strictly in **Read-only** roles for non-destructive exploration and independent evaluation.
@@ -46,7 +74,7 @@ Before writing any code or tests, discover the local repository's invariants:
 
 ## Phase 1: Proportional Discovery & Fail-to-Pass (F2P) Reproduction
 
-**Karpathy Principle: Goal-Driven Execution** — *Never edit business logic until success criteria are proven with a failing test.*
+*(Enforces Principle 4: Goal-Driven Execution)*
 
 1. **Proportional Discovery (Non-Mandatory Routing)**:
    Evaluate task complexity before spawning any subagent:
@@ -73,7 +101,7 @@ Before writing any code or tests, discover the local repository's invariants:
 
 ## Phase 2: Plan Drafting & Calibrated `judge-plan` Gate
 
-**Karpathy Principles: Think Before Coding & Simplicity First** — *Minimum code that solves the problem. No speculative abstractions. No touching code you shouldn't.*
+*(Enforces Principles 1 & 2: Think Before Coding & Simplicity First)*
 
 1. **Draft Plan** (`.workflow/plan.md`):
    Document a concise (15–25 lines) implementation blueprint:
@@ -97,7 +125,7 @@ Before writing any code or tests, discover the local repository's invariants:
 
 ## Phase 3: Surgical Implementation (Make Tests Green)
 
-**Karpathy Principle: Surgical Changes** — *Touch only what you must. Match existing style. No accidental reformatting.*
+*(Enforces Principle 3: Surgical Changes)*
 
 1. **Implement Minimal Fix**:
    - Edit only the files approved in `plan.md`.
