@@ -5,10 +5,10 @@ import { GLOBAL_ZCODE_CONFIG } from './config';
 import { ensureWorkspaceDirs, ADAPTER_SYMLINKS, reconcileWorkspaceAdapters } from './workspace';
 import { ensureSkillInvocable } from './catalog';
 import { listGlobalActiveSkills } from './skills-global';
-import { cleanGlobal } from './clean-global';
+import { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps } from './clean-global';
 import type { AuditResult, AuditIssue } from './types';
 
-export { cleanGlobal };
+export { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps };
 
 export { ADAPTER_SYMLINKS } from './workspace';
 export type { AdapterSymlinkDef } from './workspace';
@@ -74,7 +74,16 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     } catch {}
   }
 
-  // 3. Audit global MCP shadowing in ~/.zcode/cli/config.json
+  // 3. Audit global MCP shadowing and unmigrated harness MCP configs
+  const unmigratedMcps = await discoverUnmigratedHarnessMcps();
+  for (const item of unmigratedMcps) {
+    const srvNames = Object.keys(item.servers).join(', ');
+    issues.push({
+      severity: 'warning',
+      message: `Found unmigrated harness MCP declaration(s) in ${item.harness} (${path.basename(item.filePath)}: ${srvNames})! Run \`harness heal\` or \`harness clean-global\` to centralize into ~/.agents/catalog/mcps.json.`
+    });
+  }
+
   if (fs.existsSync(GLOBAL_ZCODE_CONFIG)) {
     try {
       const zcfg = JSON.parse(await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8'));
@@ -165,6 +174,10 @@ export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
       }
     } catch {}
   }
+
+  // Centralize any unmigrated global harness MCPs into ~/.agents/catalog/mcps.json
+  const mcpMigrationActions = await centralizeHarnessMcps();
+  actions.push(...mcpMigrationActions);
 
   return actions;
 }

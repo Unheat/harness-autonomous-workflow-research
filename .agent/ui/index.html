@@ -585,10 +585,17 @@
       <div class="modal-body">
         <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
           <label style="font-size: 0.8rem; color: var(--text-muted);">Target File:</label>
-          <select id="config-target-select" onchange="changeConfigTarget(this.value)" style="background: var(--surface-elevated); color: var(--text); border: 1px solid var(--border); padding: 5px 10px; border-radius: 4px; font-size: 0.82rem; outline: none;">
-            <option value="workspace-mcp">Workspace .mcp.json</option>
-            <option value="zcode-global">ZCode Global (~/.zcode/cli/config.json)</option>
-            <option value="claude-settings">Claude Global (~/.claude/settings.json)</option>
+          <select id="config-target-select" onchange="changeConfigTarget(this.value)" style="background: var(--surface-elevated); color: var(--text); border: 1px solid var(--border); padding: 5px 10px; border-radius: 4px; font-size: 0.82rem; outline: none; max-width: 440px;">
+            <optgroup label="Configuration Files">
+              <option value="workspace-mcp">Workspace .mcp.json</option>
+              <option value="global-mcp-catalog">Global MCP Catalog (~/.agents/catalog/mcps.json)</option>
+              <option value="zcode-global">ZCode Global (~/.zcode/cli/config.json)</option>
+              <option value="claude-settings">Claude Global (~/.claude/settings.json)</option>
+              <option value="global-skill-lock">Global Skill Lock (~/.agents/.skill-lock.json)</option>
+            </optgroup>
+            <optgroup id="config-optgroup-workspace-skills" label="Workspace Skills (.agents/skills)"></optgroup>
+            <optgroup id="config-optgroup-catalog-skills" label="Catalog & Global Skills"></optgroup>
+            <optgroup id="config-optgroup-subagents" label="Subagents (.agent/agents)"></optgroup>
           </select>
           <span id="config-file-path" style="font-size: 0.75rem; color: var(--text-muted); margin-left: auto;"></span>
         </div>
@@ -730,6 +737,7 @@
         renderSkills();
         renderMcps();
         renderSubagents();
+        populateConfigDropdown();
       } catch (err) {
         console.error("Failed to load status:", err);
       }
@@ -1269,33 +1277,80 @@
       }
     }
 
+    function populateConfigDropdown() {
+      const wsGroup = document.getElementById("config-optgroup-workspace-skills");
+      const catGroup = document.getElementById("config-optgroup-catalog-skills");
+      const subGroup = document.getElementById("config-optgroup-subagents");
+      if (!wsGroup || !catGroup || !subGroup) return;
+
+      const wsSkills = (state.skills || []).filter(s => s.isProjectActive || s.scope === 'workspace' || s.scope === 'project');
+      const catSkills = (state.skills || []).filter(s => !s.isProjectActive && s.scope !== 'workspace' && s.scope !== 'project');
+
+      wsGroup.innerHTML = "";
+      if (wsSkills.length === 0) {
+        const opt = document.createElement("option");
+        opt.disabled = true;
+        opt.innerText = "No active workspace skills";
+        wsGroup.appendChild(opt);
+      } else {
+        wsSkills.forEach(s => {
+          const opt = document.createElement("option");
+          opt.value = `skill:${s.name}`;
+          opt.innerText = `Skill: ${s.name} (SKILL.md)`;
+          wsGroup.appendChild(opt);
+        });
+      }
+
+      catGroup.innerHTML = "";
+      catSkills.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = `skill:${s.name}`;
+        opt.innerText = `Skill: ${s.name} (Catalog)`;
+        catGroup.appendChild(opt);
+      });
+
+      subGroup.innerHTML = "";
+      (state.subagents || []).forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = `subagent:${a.name}`;
+        opt.innerText = `Subagent: ${a.name} (.md)`;
+        subGroup.appendChild(opt);
+      });
+    }
+
     /* Config Editor Functions */
     async function openConfigModal(target, resourceName) {
-      currentConfigTarget = target;
-      currentSubagentTarget = resourceName || null;
+      populateConfigDropdown();
       const select = document.getElementById("config-target-select");
 
       let dynamicOpt = select.querySelector("option[data-dynamic='true']");
       if (dynamicOpt) dynamicOpt.remove();
 
+      let targetVal = target;
       if (target === 'skill') {
-        dynamicOpt = document.createElement("option");
-        dynamicOpt.value = "skill";
-        dynamicOpt.setAttribute("data-dynamic", "true");
-        dynamicOpt.innerText = `Skill: ${resourceName} (SKILL.md)`;
-        select.appendChild(dynamicOpt);
-        select.value = "skill";
+        currentConfigTarget = 'skill';
+        currentSubagentTarget = resourceName || null;
+        targetVal = `skill:${resourceName}`;
       } else if (target === 'subagent') {
-        dynamicOpt = document.createElement("option");
-        dynamicOpt.value = "subagent";
-        dynamicOpt.setAttribute("data-dynamic", "true");
-        dynamicOpt.innerText = `Subagent: ${resourceName} (.md)`;
-        select.appendChild(dynamicOpt);
-        select.value = "subagent";
+        currentConfigTarget = 'subagent';
+        currentSubagentTarget = resourceName || null;
+        targetVal = `subagent:${resourceName}`;
       } else {
-        select.value = target;
+        currentConfigTarget = target;
+        currentSubagentTarget = null;
+        targetVal = target;
       }
 
+      let optionMatch = select.querySelector(`option[value="${targetVal}"]`);
+      if (!optionMatch && (target === 'skill' || target === 'subagent') && resourceName) {
+        dynamicOpt = document.createElement("option");
+        dynamicOpt.value = targetVal;
+        dynamicOpt.setAttribute("data-dynamic", "true");
+        dynamicOpt.innerText = target === 'skill' ? `Skill: ${resourceName} (SKILL.md)` : `Subagent: ${resourceName} (.md)`;
+        select.appendChild(dynamicOpt);
+      }
+
+      select.value = targetVal;
       document.getElementById("config-modal").style.display = "flex";
       await loadConfigFile();
     }
@@ -1304,9 +1359,15 @@
       document.getElementById("config-modal").style.display = "none";
     }
 
-    async function changeConfigTarget(target) {
-      currentConfigTarget = target;
-      if (target !== 'subagent' && target !== 'skill') {
+    async function changeConfigTarget(val) {
+      if (val.startsWith('skill:')) {
+        currentConfigTarget = 'skill';
+        currentSubagentTarget = val.slice(6);
+      } else if (val.startsWith('subagent:')) {
+        currentConfigTarget = 'subagent';
+        currentSubagentTarget = val.slice(9);
+      } else {
+        currentConfigTarget = val;
         currentSubagentTarget = null;
       }
       await loadConfigFile();

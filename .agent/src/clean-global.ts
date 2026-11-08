@@ -3,8 +3,8 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_ZCODE_CONFIG } from './config';
-import { syncSkillToCatalog } from './catalog';
+import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_ZCODE_CONFIG, GLOBAL_CATALOG_DIR, GLOBAL_MCPS_FILE } from './config';
+import { syncSkillToCatalog, getCatalogMcps } from './catalog';
 import type { CleanGlobalResult } from './types';
 
 export interface CleanGlobalOptions {
@@ -15,6 +15,123 @@ export interface CleanGlobalOptions {
 }
 
 export const DEFAULT_GLOBAL_SKILLS_WHITELIST = ['harness-protocol', 'agent-reach'];
+
+export interface UnmigratedHarnessMcp {
+  harness: string;
+  filePath: string;
+  servers: Record<string, any>;
+}
+
+/**
+ * Discovers any unmigrated global MCP servers defined directly inside harness configs:
+ * - ~/.zcode/cli/config.json (mcp.servers)
+ * - ~/.claude/.mcp.json or ~/.claude/settings.json (mcpServers)
+ * - ~/.cursor/mcp.json (mcpServers)
+ */
+export async function discoverUnmigratedHarnessMcps(): Promise<UnmigratedHarnessMcp[]> {
+  const home = os.homedir();
+  const results: UnmigratedHarnessMcp[] = [];
+
+  // 1. ZCode: ~/.zcode/cli/config.json
+  if (fs.existsSync(GLOBAL_ZCODE_CONFIG)) {
+    try {
+      const raw = await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8');
+      const zcfg = JSON.parse(raw);
+      const servers = zcfg?.mcp?.servers || {};
+      const nonDormant = Object.fromEntries(
+        Object.entries(servers).filter(([_, cfg]: [string, any]) => cfg && Object.keys(cfg).length > 0)
+      );
+      if (Object.keys(nonDormant).length > 0) {
+        results.push({ harness: 'ZCode', filePath: GLOBAL_ZCODE_CONFIG, servers: nonDormant });
+      }
+    } catch {}
+  }
+
+  // 2. Claude: ~/.claude/.mcp.json
+  const claudeMcp = path.join(home, '.claude', '.mcp.json');
+  if (fs.existsSync(claudeMcp)) {
+    try {
+      const raw = await fsp.readFile(claudeMcp, 'utf-8');
+      const cfg = JSON.parse(raw);
+      const servers = cfg?.mcpServers || {};
+      if (Object.keys(servers).length > 0) {
+        results.push({ harness: 'Claude Code', filePath: claudeMcp, servers });
+      }
+    } catch {}
+  }
+
+  // 3. Cursor: ~/.cursor/mcp.json
+  const cursorMcp = path.join(home, '.cursor', 'mcp.json');
+  if (fs.existsSync(cursorMcp)) {
+    try {
+      const raw = await fsp.readFile(cursorMcp, 'utf-8');
+      const cfg = JSON.parse(raw);
+      const servers = cfg?.mcpServers || {};
+      if (Object.keys(servers).length > 0) {
+        results.push({ harness: 'Cursor', filePath: cursorMcp, servers });
+      }
+    } catch {}
+  }
+
+  return results;
+}
+
+/**
+ * Migrates unmigrated harness MCP servers into the central catalog (~/.agents/catalog/mcps.json)
+ * and cleans them up from the harness configs to eliminate duplicate declarations.
+ */
+export async function centralizeHarnessMcps(): Promise<string[]> {
+  const actions: string[] = [];
+  const unmigrated = await discoverUnmigratedHarnessMcps();
+  if (unmigrated.length === 0) return actions;
+
+  const catalog = await getCatalogMcps();
+  let catalogUpdated = false;
+
+  for (const item of unmigrated) {
+    for (const [name, srvConfig] of Object.entries(item.servers)) {
+      if (!catalog[name]) {
+        // Deep clone config and normalize
+        const clone = { ...srvConfig };
+        catalog[name] = clone;
+        catalogUpdated = true;
+        actions.push(`Centralized MCP "${name}" from ${item.harness} into central catalog (~/.agents/catalog/mcps.json)`);
+      } else {
+        actions.push(`Merged duplicate MCP "${name}" from ${item.harness} into central catalog`);
+      }
+    }
+
+    // Clean up harness config
+    try {
+      if (item.filePath === GLOBAL_ZCODE_CONFIG) {
+        const raw = await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8');
+        const zcfg = JSON.parse(raw);
+        if (zcfg.mcp) {
+          delete zcfg.mcp;
+          await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify(zcfg, null, 2) + '\n', 'utf-8');
+          actions.push(`Removed migrated MCP servers from ${item.harness} config (${path.basename(item.filePath)})`);
+        }
+      } else {
+        const raw = await fsp.readFile(item.filePath, 'utf-8');
+        const cfg = JSON.parse(raw);
+        if (cfg.mcpServers) {
+          cfg.mcpServers = {};
+          await fsp.writeFile(item.filePath, JSON.stringify(cfg, null, 2) + '\n', 'utf-8');
+          actions.push(`Removed migrated MCP servers from ${item.harness} config (${path.basename(item.filePath)})`);
+        }
+      }
+    } catch (err: any) {
+      actions.push(`Warning: Failed to clean ${item.filePath}: ${err.message}`);
+    }
+  }
+
+  if (catalogUpdated) {
+    await fsp.mkdir(GLOBAL_CATALOG_DIR, { recursive: true });
+    await fsp.writeFile(GLOBAL_MCPS_FILE, JSON.stringify({ version: '1.0.0', mcpServers: catalog }, null, 2) + '\n', 'utf-8');
+  }
+
+  return actions;
+}
 
 /**
  * Re-targets workspace symlinks that were pointing to old ~/.agents/skills/ to ~/.agents/catalog/skills/.
@@ -142,25 +259,26 @@ export async function cleanGlobalSkills(keepSkills: string[] = DEFAULT_GLOBAL_SK
 }
 
 /**
- * Sanitizes global MCP servers in ~/.zcode/cli/config.json.
+ * Sanitizes global MCP servers in ~/.zcode/cli/config.json and centralizes them.
  */
 export async function cleanGlobalMcps(): Promise<string[]> {
   const actions: string[] = [];
+  const migrationActions = await centralizeHarnessMcps();
+  actions.push(...migrationActions);
+
   if (fs.existsSync(GLOBAL_ZCODE_CONFIG)) {
     try {
       const raw = await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8');
       const zcfg = JSON.parse(raw);
-      zcfg.mcp = zcfg.mcp || { servers: {} };
-      zcfg.mcp.servers = zcfg.mcp.servers || {};
-
-      for (const heavy of ['rea', 'local-pdf-rag']) {
-        if (zcfg.mcp.servers[heavy] && zcfg.mcp.servers[heavy].enabled !== false) {
-          zcfg.mcp.servers[heavy].enabled = false;
-          actions.push(`Set global server "${heavy}" to inactive (enabled: false) to prevent token bloat`);
+      if (zcfg.mcp && zcfg.mcp.servers) {
+        for (const heavy of ['rea', 'local-pdf-rag']) {
+          if (zcfg.mcp.servers[heavy] && zcfg.mcp.servers[heavy].enabled !== false) {
+            zcfg.mcp.servers[heavy].enabled = false;
+            actions.push(`Set global server "${heavy}" to inactive (enabled: false) to prevent token bloat`);
+          }
         }
+        await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify(zcfg, null, 2) + '\n', 'utf-8');
       }
-
-      await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify(zcfg, null, 2) + '\n', 'utf-8');
     } catch (err: any) {
       actions.push(`Failed to update ZCode global config: ${err.message}`);
     }

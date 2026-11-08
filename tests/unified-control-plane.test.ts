@@ -65,6 +65,28 @@ describe('Spec 007: Unified Control Plane & Global Governance', () => {
       const diskContent = await fsp.readFile(mcpPath, 'utf-8');
       expect(diskContent).toContain('new');
     });
+
+    test('readConfigFile: resolves global-mcp-catalog and skill-lock targets', async () => {
+      const { resolveConfigPath } = await import('../.agent/src/services/config-service');
+      const mcpRes = resolveConfigPath('global-mcp-catalog', tempDir);
+      expect(mcpRes.filePath).toContain('mcps.json');
+      expect(mcpRes.format).toBe('json');
+
+      const lockRes = resolveConfigPath('global-skill-lock', tempDir);
+      expect(lockRes.filePath).toContain('.skill-lock.json');
+      expect(lockRes.format).toBe('json');
+    });
+
+    test('readConfigFile: resolves local .agent/skills as fallback candidate', async () => {
+      const { resolveConfigPath } = await import('../.agent/src/services/config-service');
+      const localAgentSkillDir = path.join(tempDir, '.agent', 'skills', 'my-custom-skill');
+      await fsp.mkdir(localAgentSkillDir, { recursive: true });
+      await fsp.writeFile(path.join(localAgentSkillDir, 'SKILL.md'), '# Custom Skill');
+
+      const skillRes = resolveConfigPath('skill', tempDir, 'my-custom-skill');
+      expect(skillRes.filePath).toBe(fs.realpathSync(path.join(localAgentSkillDir, 'SKILL.md')));
+      expect(skillRes.format).toBe('markdown');
+    });
   });
 
   describe('SubagentService', () => {

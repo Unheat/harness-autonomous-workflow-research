@@ -3,10 +3,17 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { getWorkspacePaths } from '../workspace';
-import { GLOBAL_ZCODE_CONFIG, GLOBAL_CLAUDE_CONFIG, GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR } from '../config';
+import { GLOBAL_ZCODE_CONFIG, GLOBAL_CLAUDE_CONFIG, GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_MCPS_FILE, GLOBAL_AGENTS_DIR } from '../config';
 import type { OperationResult } from '../types';
 
-export type ConfigTarget = 'workspace-mcp' | 'zcode-global' | 'claude-settings' | 'subagent' | 'skill';
+export type ConfigTarget =
+  | 'workspace-mcp'
+  | 'global-mcp-catalog'
+  | 'zcode-global'
+  | 'claude-settings'
+  | 'global-skill-lock'
+  | 'subagent'
+  | 'skill';
 
 export interface ConfigReadResult {
   success: boolean;
@@ -23,11 +30,18 @@ export function resolveConfigPath(target: ConfigTarget, workspaceRoot: string, s
       const { mcpFile } = getWorkspacePaths(workspaceRoot);
       return { filePath: mcpFile, format: 'json' };
     }
+    case 'global-mcp-catalog': {
+      return { filePath: GLOBAL_MCPS_FILE, format: 'json' };
+    }
     case 'zcode-global': {
       return { filePath: GLOBAL_ZCODE_CONFIG, format: 'json' };
     }
     case 'claude-settings': {
       return { filePath: GLOBAL_CLAUDE_CONFIG, format: 'json' };
+    }
+    case 'global-skill-lock': {
+      const lockFile = path.join(GLOBAL_AGENTS_DIR, '.skill-lock.json');
+      return { filePath: lockFile, format: 'json' };
     }
     case 'subagent': {
       if (!subagentName) {
@@ -49,6 +63,7 @@ export function resolveConfigPath(target: ConfigTarget, workspaceRoot: string, s
       const candidates = [
         path.join(workspaceRoot, '.agents', 'skills', safeName, 'SKILL.md'),
         path.join(workspaceRoot, '.agents', 'dormant', safeName, 'SKILL.md'),
+        path.join(workspaceRoot, '.agent', 'skills', safeName, 'SKILL.md'),
         path.join(GLOBAL_CATALOG_SKILLS_DIR, safeName, 'SKILL.md'),
         path.join(GLOBAL_SKILLS_DIR, safeName, 'SKILL.md'),
         path.join(home, '.claude', 'skills', safeName, 'SKILL.md'),

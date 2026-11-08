@@ -188,7 +188,7 @@ async function handleConfigCommand(args: string[], root: string): Promise<void> 
       console.log(colorize(`Error: ${err.message}`, COLORS.RED));
     }
   } else {
-    console.log('Usage: config read <workspace-mcp|zcode-global|claude-settings|subagent> [name]');
-    console.log('       config edit <workspace-mcp|zcode-global|claude-settings|subagent> [name]');
+    console.log('Usage: config read <workspace-mcp|global-mcp-catalog|zcode-global|claude-settings|global-skill-lock|subagent|skill> [name]');
+    console.log('       config edit <workspace-mcp|global-mcp-catalog|zcode-global|claude-settings|global-skill-lock|subagent|skill> [name]');
   }
 }
