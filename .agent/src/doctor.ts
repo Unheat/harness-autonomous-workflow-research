@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import { GLOBAL_ZCODE_CONFIG } from './config';
 import { ensureWorkspaceDirs, ADAPTER_SYMLINKS, reconcileWorkspaceAdapters } from './workspace';
 import { ensureSkillInvocable } from './catalog';
@@ -22,8 +23,10 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
   const issues: AuditIssue[] = [];
   const root = path.resolve(workspaceRoot);
 
-  // 1. Audit adapter symlinks
-  for (const item of ADAPTER_SYMLINKS) {
+  const isHome = root === path.resolve(os.homedir());
+
+  // Global harness directories are not project adapters.
+  for (const item of isHome ? [] : ADAPTER_SYMLINKS) {
     const fullPath = path.join(root, item.link);
     const stat = await fsp.lstat(fullPath).catch(() => null);
 
@@ -65,7 +68,7 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
           const p = path.join(skillsDir, entry.name);
           if (!fs.existsSync(p)) {
             issues.push({ severity: 'error', message: `Dangling skill symlink in .agents/skills/${entry.name}` });
-          } else if (globalNames.has(entry.name)) {
+          } else if (!isHome && globalNames.has(entry.name)) {
             issues.push({
               severity: 'warning',
               message: `Skill "${entry.name}" is active in both Global User Scope and Workspace Scope. Both declarations are preserved; review scope explicitly.`
@@ -94,7 +97,7 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
       const localServers = fs.existsSync(localMcpFile) ? JSON.parse(await fsp.readFile(localMcpFile, 'utf-8'))?.mcpServers || {} : {};
 
       for (const [name, cfg] of Object.entries(zservers) as [string, any][]) {
-        if (cfg.enabled === false && localServers[name] && localServers[name].enabled !== false) {
+        if (!isHome && cfg.enabled === false && localServers[name] && localServers[name].enabled !== false) {
           issues.push({
             severity: 'error',
             message: `MCP server "${name}" is enabled locally, but blocked by Global ZCode config! Run \`harness mcp global rm ${name}\` to unblock.`
@@ -149,10 +152,20 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
  */
 export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
   const root = path.resolve(workspaceRoot);
-  await ensureWorkspaceDirs(root);
-  const paths = path.join(root, '.agent', 'agents');
-  await fsp.mkdir(paths, { recursive: true });
-  const actions = await reconcileWorkspaceAdapters(root);
+  const isHome = root === path.resolve(os.homedir());
+  const actions: string[] = [];
+  if (!isHome) {
+    await ensureWorkspaceDirs(root);
+    await fsp.mkdir(path.join(root, '.agent', 'agents'), { recursive: true });
+    actions.push(...await reconcileWorkspaceAdapters(root));
+  } else {
+    actions.push('Global user scope: project adapter repair skipped; native harness folders preserved.');
+    const dshMcp = path.join(root, '.dsh', 'mcp.json');
+    if (await fsp.lstat(dshMcp).catch(() => null)) {
+      await fsp.unlink(dshMcp);
+      actions.push('Pruned poisonous .dsh/mcp.json adapter (prevents raw MCP double-mount in DSH)');
+    }
+  }
 
   // Prune broken skill symlinks in .agents/skills & sanitize invocation policy
   const skillsDir = path.join(root, '.agents', 'skills');

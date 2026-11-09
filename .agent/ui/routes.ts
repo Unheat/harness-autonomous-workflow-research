@@ -180,7 +180,10 @@ export async function handleApiRoute(
 
   if (req.method === 'POST' && pathname === '/api/heal') {
     const actions = await healWorkspace(root);
-    sendJson(res, 200, { success: true, message: 'Reconciled and healed all adapter symlinks', actions });
+    const report = await auditWorkspace(root);
+    const message = report.passed ? 'Auto-heal complete: no audit issues remain.'
+      : `Auto-heal finished: ${report.issues.length} issue(s) remain; review results below.`;
+    sendJson(res, 200, { success: true, message, actions, report });
     return true;
   }
 

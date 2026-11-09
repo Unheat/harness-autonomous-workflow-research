@@ -621,7 +621,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn" onclick="closeDoctorModal()">Close</button>
-        <button class="btn btn-primary" onclick="healSymlinks(); closeDoctorModal();">Run Auto-Heal</button>
+        <button class="btn btn-primary" onclick="healSymlinks()">Run Auto-Heal</button>
       </div>
     </div>
   </div>
@@ -1424,6 +1424,10 @@
     }
 
     /* Doctor Diagnostics Modal */
+    function escapeDoctorText(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
     async function openDoctorModal() {
       document.getElementById("doctor-modal").style.display = "flex";
       const body = document.getElementById("doctor-body");
@@ -1441,7 +1445,7 @@
           let html = `<div style="color: var(--warning); font-weight: 600; font-size: 0.95rem; margin-bottom: 12px;">⚠️ Found ${data.issues.length} Issue(s):</div><ul style="list-style: none; font-size: 0.82rem;">`;
           data.issues.forEach(iss => {
             const tag = iss.severity === "error" ? "<span style='color: var(--danger); font-weight: 600;'>[ERROR]</span>" : "<span style='color: var(--warning); font-weight: 600;'>[WARN]</span>";
-            html += `<li style="padding: 6px 0; border-bottom: 1px solid var(--border);">${tag} ${iss.message}</li>`;
+            html += `<li style="padding: 6px 0; border-bottom: 1px solid var(--border);">${tag} ${escapeDoctorText(iss.message)}</li>`;
           });
           html += "</ul>";
           body.innerHTML = html;
@@ -1456,12 +1460,25 @@
     }
 
     async function healSymlinks() {
+      document.getElementById("doctor-modal").style.display = "flex";
+      const body = document.getElementById("doctor-body");
+      body.innerHTML = "Running auto-heal...";
       try {
         const res = await fetch("/api/heal", { method: "POST" });
+        if (!res.ok) throw new Error("Heal request failed");
         const data = await res.json();
-        showToast(data.message || "Reconciled and healed symlinks");
+        if (!data.success) throw new Error(data.message || "Heal failed");
+        let html = `<p>${escapeDoctorText(data.message)}</p><h4>Actions / preserved items</h4><ul>`;
+        data.actions.forEach(action => { html += `<li>${escapeDoctorText(action)}</li>`; });
+        html += "</ul><h4>Remaining issues</h4><ul>";
+        data.report.issues.forEach(issue => {
+          html += `<li>[${escapeDoctorText(issue.severity)}] ${escapeDoctorText(issue.message)}</li>`;
+        });
+        body.innerHTML = html + (data.report.passed ? "<li>None.</li>" : "") + "</ul>";
+        showToast(data.message);
         await loadStatus();
       } catch (err) {
+        body.innerHTML = "Failed to complete auto-heal. Re-run Doctor to check current state.";
         showToast("Error running heal");
       }
     }
