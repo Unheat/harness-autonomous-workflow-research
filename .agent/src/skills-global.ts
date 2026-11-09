@@ -113,7 +113,7 @@ export async function getEffectiveSkillsList(workspaceRoot: string): Promise<Eff
   return result;
 }
 
-export async function enableGlobalSkill(skillName: string): Promise<OperationResult> {
+export async function enableGlobalSkill(skillName: string, workspaceRoot?: string): Promise<OperationResult> {
   if (!isValidSkillName(skillName)) return { success: false, message: 'Invalid skill name.' };
   const home = os.homedir();
   const zcodeSkillsDir = path.join(home, '.zcode', 'skills');
@@ -186,6 +186,15 @@ export async function enableGlobalSkill(skillName: string): Promise<OperationRes
         }
         const updated = JSON.stringify(config, null, 2) + '\n';
         if (updated !== raw) await fsp.writeFile(GLOBAL_ZCODE_CONFIG, updated);
+      }
+    }
+    if (workspaceRoot) {
+      const local = path.join(workspaceRoot, '.agents', 'skills', skillName);
+      const stat = await fsp.lstat(local).catch(() => null);
+      // ZCode deduplicates canonical files before filtering user/workspace scope.
+      // Remove only an identical project symlink; private physical copies remain.
+      if (stat?.isSymbolicLink() && await fsp.realpath(local).catch(() => null) === source) {
+        await fsp.unlink(local);
       }
     }
     return { success: true, message: `Skill "${skillName}" enabled globally across supported harnesses.` };

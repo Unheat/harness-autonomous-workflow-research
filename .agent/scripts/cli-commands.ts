@@ -73,7 +73,7 @@ async function handleSkillCommand(args: string[], root: string): Promise<void> {
     const gAct = (args[1] || '').toLowerCase();
     const gTarget = args[2];
     if (['on', 'enable'].includes(gAct) && gTarget) {
-      const res = await enableGlobalSkill(gTarget);
+      const res = await enableGlobalSkill(gTarget, root);
       console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
     } else if (['off', 'disable'].includes(gAct) && gTarget) {
       const res = await disableGlobalSkill(gTarget);

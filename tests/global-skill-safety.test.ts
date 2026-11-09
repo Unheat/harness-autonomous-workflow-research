@@ -94,6 +94,22 @@ test('explicit global enable clears only matching ZCode disabled path overrides'
   expect(updated.skills.unrelated.enable).toBe(false);
 });
 
+test('global promotion removes identical project alias but preserves private project folders', async () => {
+  const name = 'scope-promotion-fixture';
+  const ws = await fs.mkdtemp(path.join(os.tmpdir(), 'skill-promotion-'));
+  const catalog = path.join(home, '.agents/catalog/skills', name);
+  await skill(path.dirname(catalog), name);
+  await fs.mkdir(path.join(ws, '.agents/skills'), { recursive: true });
+  const local = path.join(ws, '.agents/skills', name);
+  await fs.symlink(catalog, local);
+  expect((await enableGlobalSkill(name, ws)).success).toBe(true);
+  expect(await fs.lstat(local).catch(() => null)).toBeNull();
+  expect(await fs.readFile(path.join(home, '.zcode/skills', name, 'SKILL.md'), 'utf8')).toContain(name);
+  await skill(path.join(ws, '.agents/skills'), name, 'private project variant');
+  expect((await enableGlobalSkill(name, ws)).success).toBe(true);
+  expect(await fs.readFile(path.join(local, 'SKILL.md'), 'utf8')).toContain('private project variant');
+});
+
 test('global lifecycle handles DSH directory aliases without duplicate links or broken targets', async () => {
   const name = 'aliased-root-fixture';
   const dsh = path.join(home, '.dsh/skills');

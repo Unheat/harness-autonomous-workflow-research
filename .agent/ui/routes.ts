@@ -58,7 +58,7 @@ export async function handleApiRoute(
     const body = await parseJsonBody(req);
     let result: any;
     if (body.scope === 'global') {
-      result = body.enable ? await enableGlobalSkill(body.name) : await disableGlobalSkill(body.name);
+      result = body.enable ? await enableGlobalSkill(body.name, root) : await disableGlobalSkill(body.name);
     } else if (!body.enable && isSkillActiveGlobally(body.name)) {
       result = await disableGlobalSkill(body.name);
       await removeSkill(root, body.name);
@@ -71,7 +71,7 @@ export async function handleApiRoute(
 
   if (req.method === 'POST' && pathname === '/api/skill/global-toggle') {
     const body = await parseJsonBody(req);
-    const result = body.enable ? await enableGlobalSkill(body.name) : await disableGlobalSkill(body.name);
+    const result = body.enable ? await enableGlobalSkill(body.name, root) : await disableGlobalSkill(body.name);
     sendJson(res, 200, result);
     return true;
   }
