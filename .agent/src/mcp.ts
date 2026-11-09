@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import { getWorkspacePaths, ensureWorkspaceDirs } from './workspace';
 import { getCatalogMcps } from './catalog';
 import { GLOBAL_CATALOG_DIR, GLOBAL_MCPS_FILE } from './config';
+import { syncDshProfileMcps } from './mcp-dsh';
 import type { McpServerConfig, OperationResult } from './types';
 
 function isValidName(name: string): boolean {
@@ -58,6 +59,9 @@ export async function saveLocalMcps(
   try {
     await fsp.writeFile(agentMcpSymlink, payload, 'utf-8');
   } catch {}
+
+  // Synchronize enabled MCP servers into DeepSeek Harness desktop profile
+  await syncDshProfileMcps(mcpServers).catch(() => {});
 }
 
 /**

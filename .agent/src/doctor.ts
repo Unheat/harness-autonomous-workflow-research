@@ -6,6 +6,8 @@ import { ensureWorkspaceDirs, ADAPTER_SYMLINKS, reconcileWorkspaceAdapters } fro
 import { ensureSkillInvocable } from './catalog';
 import { listGlobalActiveSkills } from './skills-global';
 import { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps } from './clean-global';
+import { listLocalMcps } from './mcp';
+import { syncDshProfileMcps } from './mcp-dsh';
 import type { AuditResult, AuditIssue } from './types';
 
 export { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps };
@@ -178,6 +180,10 @@ export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
   // Centralize any unmigrated global harness MCPs into ~/.agents/catalog/mcps.json
   const mcpMigrationActions = await centralizeHarnessMcps();
   actions.push(...mcpMigrationActions);
+
+  // Sync workspace MCP servers into DeepSeek Harness profile
+  const localMcps = await listLocalMcps(root);
+  await syncDshProfileMcps(localMcps).catch(() => {});
 
   return actions;
 }

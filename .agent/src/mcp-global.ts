@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import { GLOBAL_ZCODE_CONFIG } from './config';
 import { listLocalMcps } from './mcp';
 import { getCatalogMcps } from './catalog';
+import { syncDshProfileMcps } from './mcp-dsh';
 import type { McpServerConfig, OperationResult, McpScopeState, EffectiveMcpInfo } from './types';
 
 /**
@@ -30,6 +31,7 @@ export async function saveGlobalMcps(servers: Record<string, McpServerConfig>): 
     zcfg.mcp = zcfg.mcp || {};
     zcfg.mcp.servers = servers;
     await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify(zcfg, null, 2) + '\n', 'utf-8');
+    await syncDshProfileMcps(servers).catch(() => {});
   } catch (err: any) {
     throw new Error(`Failed to save global config: ${err.message}`);
   }
