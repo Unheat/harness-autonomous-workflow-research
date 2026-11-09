@@ -8,49 +8,99 @@ import type { McpServerConfig } from './types';
 export const DSH_DESKTOP_PATCH = path.join(os.homedir(), '.dsh', 'profiles', 'desktop', 'cordis.patch.yml');
 
 /**
- * Synchronizes enabled MCP servers into DeepSeek Harness desktop profile (cordis.patch.yml).
- * Ensures DSH model sessions can natively call external MCP servers via @deepseek-ai/dsh-mcp-client.
+ * Builds an @deepseek-ai/dsh-mcp-client entry from an McpServerConfig.
+ * Accurately handles stdio vs streamable-http/sse, command, args, url, headers, and env.
  */
-export async function syncDshProfileMcps(localServers: Record<string, McpServerConfig>): Promise<void> {
-  if (!fs.existsSync(DSH_DESKTOP_PATCH)) return;
+export function buildDshMcpEntry(name: string, cfg: McpServerConfig): any {
+  const isHttp = Boolean(cfg.url) || cfg.transport === 'streamable-http' || cfg.transport === 'sse';
+  const transport = isHttp ? 'streamable-http' : 'stdio';
+
+  const config: Record<string, any> = {
+    serverName: name,
+    transport
+  };
+
+  if (isHttp) {
+    if (cfg.url) config.url = cfg.url;
+    if (cfg.headers && Object.keys(cfg.headers).length > 0) {
+      config.headers = cfg.headers;
+    }
+  } else {
+    if (cfg.command) config.command = cfg.command;
+    config.args = Array.isArray(cfg.args) ? cfg.args : [];
+  }
+
+  if (cfg.env && Object.keys(cfg.env).length > 0) {
+    config.env = cfg.env;
+  }
+
+  return {
+    id: `mcp-${name}`,
+    name: '@deepseek-ai/dsh-mcp-client',
+    config
+  };
+}
+
+/**
+ * Synchronizes enabled MCP servers into DeepSeek Harness profile (cordis.patch.yml).
+ * Uses AST-preserving YAML modification to protect existing comments, formatting, and !!js expressions.
+ */
+export async function syncDshProfileMcps(
+  localServers: Record<string, McpServerConfig>,
+  patchPath: string = DSH_DESKTOP_PATCH
+): Promise<boolean> {
+  if (!fs.existsSync(patchPath)) return false;
 
   try {
-    const raw = await fsp.readFile(DSH_DESKTOP_PATCH, 'utf-8');
-    const doc = yaml.parse(raw);
-    if (!Array.isArray(doc)) return;
+    const raw = await fsp.readFile(patchPath, 'utf-8');
+    const doc = yaml.parseDocument(raw);
+    if (!doc || !doc.contents || !('items' in (doc.contents as any))) {
+      return false;
+    }
 
-    // Filter out previous mcp-* entries from top level or insert lists
-    const cleaned = doc.filter((item: any) => {
-      if (item && item.id && typeof item.id === 'string' && item.id.startsWith('mcp-')) return false;
-      if (item && Array.isArray(item.insert)) {
-        item.insert = item.insert.filter((sub: any) => !sub?.id || !String(sub.id).startsWith('mcp-'));
-        return item.insert.length > 0;
-      }
-      return true;
-    });
+    const seq: any = doc.contents;
 
-    const mcpEntries: any[] = [];
-    for (const [name, cfg] of Object.entries(localServers)) {
-      if (cfg.enabled === false || cfg.disabled === true) continue;
-      mcpEntries.push({
-        id: `mcp-${name}`,
-        name: '@deepseek-ai/dsh-mcp-client',
-        config: {
-          serverName: name,
-          transport: cfg.transport || 'stdio',
-          command: cfg.command,
-          args: cfg.args || [],
-          ...(cfg.env && Object.keys(cfg.env).length > 0 ? { env: cfg.env } : {})
+    // Prune existing mcp-* entries from top level and insert blocks
+    for (let i = seq.items.length - 1; i >= 0; i--) {
+      const item = seq.items[i];
+      if (item && typeof item.get === 'function') {
+        const id = item.get('id');
+        if (typeof id === 'string' && id.startsWith('mcp-')) {
+          seq.items.splice(i, 1);
+          continue;
         }
-      });
+
+        const insertSeq = item.get('insert');
+        if (insertSeq && Array.isArray(insertSeq.items)) {
+          for (let j = insertSeq.items.length - 1; j >= 0; j--) {
+            const sub = insertSeq.items[j];
+            const subId = typeof sub?.get === 'function' ? sub.get('id') : sub?.id;
+            if (typeof subId === 'string' && subId.startsWith('mcp-')) {
+              insertSeq.items.splice(j, 1);
+            }
+          }
+          if (insertSeq.items.length === 0) {
+            seq.items.splice(i, 1);
+          }
+        }
+      }
+    }
+
+    // Collect active servers (enabled === true and disabled !== true)
+    const mcpEntries: any[] = [];
+    for (const [name, cfg] of Object.entries(localServers || {})) {
+      if (cfg.enabled === false || (cfg as any).disabled === true) continue;
+      mcpEntries.push(buildDshMcpEntry(name, cfg));
     }
 
     if (mcpEntries.length > 0) {
-      cleaned.push({ insert: mcpEntries });
+      const insertNode = doc.createNode({ insert: mcpEntries });
+      seq.items.push(insertNode);
     }
 
-    await fsp.writeFile(DSH_DESKTOP_PATCH, yaml.stringify(cleaned), 'utf-8');
+    await fsp.writeFile(patchPath, doc.toString(), 'utf-8');
+    return true;
   } catch {
-    // Non-blocking sync error
+    return false;
   }
 }
