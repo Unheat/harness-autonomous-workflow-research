@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import type { WorkspacePaths, InitWorkspaceResult } from './types';
 
 export interface AdapterSymlinkDef {
@@ -83,8 +84,15 @@ export async function reconcileWorkspaceAdapters(root: string): Promise<string[]
 export function findWorkspaceRoot(startDir: string = process.cwd()): string {
   let current = path.resolve(startDir);
   const root = path.parse(current).root;
+  const home = os.homedir();
 
   while (current !== root) {
+    // Never treat HOME_DIR as a workspace when ascending from a subfolder
+    // because ~/.agents is the global catalog/storage, not a project root
+    if (current === home && path.resolve(startDir) !== home) {
+      break;
+    }
+
     if (
       fs.existsSync(path.join(current, '.git')) ||
       fs.existsSync(path.join(current, '.agents')) ||
@@ -95,7 +103,7 @@ export function findWorkspaceRoot(startDir: string = process.cwd()): string {
     current = path.dirname(current);
   }
 
-  // Root level check
+  // Root level check (only if startDir itself was root)
   if (
     fs.existsSync(path.join(root, '.git')) ||
     fs.existsSync(path.join(root, '.agents')) ||

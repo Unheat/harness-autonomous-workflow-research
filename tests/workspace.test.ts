@@ -25,6 +25,18 @@ describe('workspace module', () => {
     await fsp.rm(tmpDir, { recursive: true, force: true });
   });
 
+  test('findWorkspaceRoot: does not match home directory when ascending from subfolder', async () => {
+    // isolated-home has ~/.agents fixture created
+    const subDir = path.join(os.homedir(), 'projects', 'my-subproject');
+    await fsp.mkdir(subDir, { recursive: true });
+
+    // Should return the subproject directory, not os.homedir()
+    const resolved = findWorkspaceRoot(subDir);
+    expect(resolved).toBe(path.resolve(subDir));
+
+    await fsp.rm(path.join(os.homedir(), 'projects'), { recursive: true, force: true });
+  });
+
   test('getWorkspacePaths: maps paths correctly', () => {
     const wsRoot = '/tmp/dummy-workspace';
     const paths = getWorkspacePaths(wsRoot);
