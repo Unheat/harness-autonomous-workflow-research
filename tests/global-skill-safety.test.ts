@@ -72,7 +72,7 @@ test('ZCode disabled override does not hide a skill still active in another harn
   const config = path.join(home, '.zcode/cli/config.json');
   const before = await fs.readFile(config, 'utf8');
   const value = JSON.parse(before);
-  value.skills = { [path.join(catalog, name, 'SKILL.md')]: { enable: false } };
+  value.skills = { [await fs.realpath(path.join(catalog, name, 'SKILL.md'))]: { enable: false } };
   await fs.writeFile(config, JSON.stringify(value));
   try {
     expect((await listGlobalActiveSkills()).some(s => s.name === name)).toBe(true);
