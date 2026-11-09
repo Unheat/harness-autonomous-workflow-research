@@ -94,6 +94,26 @@ test('explicit global enable clears only matching ZCode disabled path overrides'
   expect(updated.skills.unrelated.enable).toBe(false);
 });
 
+test('global lifecycle handles DSH directory aliases without duplicate links or broken targets', async () => {
+  const name = 'aliased-root-fixture';
+  const dsh = path.join(home, '.dsh/skills');
+  const saved = path.join(home, '.dsh/skills-before-alias');
+  await fs.rename(dsh, saved);
+  await fs.symlink('../.agents/skills', dsh);
+  try {
+    await skill(path.join(home, '.agents/catalog/skills'), name);
+    expect((await enableGlobalSkill(name)).success).toBe(true);
+    for (const root of roots) expect(await fs.readFile(path.join(home, root, name, 'SKILL.md'), 'utf8')).toContain(name);
+    expect((await disableGlobalSkill(name)).success).toBe(true);
+    for (const root of roots) expect(await fs.lstat(path.join(home, root, name)).catch(() => null)).toBeNull();
+    expect(await fs.readlink(dsh)).toBe('../.agents/skills');
+    expect(await fs.readFile(path.join(home, '.agents/catalog/skills', name, 'SKILL.md'), 'utf8')).toContain(name);
+  } finally {
+    await fs.unlink(dsh);
+    await fs.rename(saved, dsh);
+  }
+});
+
 test('fallback shared symlink stays readable without creating a self-link', async () => {
   const name = 'external-fixture';
   const external = await fs.mkdtemp(path.join(os.tmpdir(), 'external-skill-'));
