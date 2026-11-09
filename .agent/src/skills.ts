@@ -1,21 +1,15 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR } from './config';
 import { ensureSkillInvocable } from './catalog';
 import { getWorkspacePaths, ensureWorkspaceDirs } from './workspace';
 import type { LocalSkillInfo, OperationResult, SkillRemoveResult, SkillCreateResult } from './types';
 
-function isValidSkillName(name: string): boolean {
-  return !(!name || typeof name !== 'string' || !name.trim() || name.includes('..') || name.includes('/') || name.includes('\\'));
-}
+import { isValidSkillName, globalSkillRoots } from './skill-paths';
 
 export function isSkillActiveGlobally(skillName: string): boolean {
-  const home = os.homedir();
-  const zMd = path.join(home, '.zcode', 'skills', skillName, 'SKILL.md');
-  const cMd = path.join(home, '.claude', 'skills', skillName, 'SKILL.md');
-  return fs.existsSync(zMd) || fs.existsSync(cMd);
+  return isValidSkillName(skillName) && globalSkillRoots().some(root => fs.existsSync(path.join(root, skillName, 'SKILL.md')));
 }
 
 /**

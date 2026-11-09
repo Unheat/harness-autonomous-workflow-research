@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 
 import { getWorkspacePaths } from '../workspace';
+import { isValidSkillName } from '../skill-paths';
 import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR } from '../config';
 import { addSkill, removeSkill, isSkillActiveGlobally } from '../skills';
 import { enableGlobalSkill, disableGlobalSkill, getEffectiveSkillsList } from '../skills-global';
@@ -22,17 +23,21 @@ export async function deleteSkillPermanent(
   options: DeleteSkillOptions = { fromWorkspace: true }
 ): Promise<OperationResult> {
   const skillName = (rawSkillName || '').trim();
-  if (!skillName || skillName.includes('..') || skillName.includes('/') || skillName.includes('\\')) {
+  if (!isValidSkillName(skillName)) {
     return { success: false, message: `Invalid skill name: "${rawSkillName}"` };
   }
 
+  if (options.fromCatalog) {
+    const disabled = await disableGlobalSkill(skillName);
+    if (!disabled.success && disabled.message !== 'Skill was not globally active.') return disabled;
+  }
   const actions: string[] = [];
   const { skillsDir, dormantSkillsDir } = getWorkspacePaths(workspaceRoot);
   const localTarget = path.join(skillsDir, skillName);
   const dormantTarget = path.join(dormantSkillsDir, skillName);
 
   if (options.fromWorkspace !== false) {
-    if (fs.existsSync(localTarget)) {
+    if (await fsp.lstat(localTarget).catch(() => null)) {
       try {
         const stat = await fsp.lstat(localTarget);
         if (stat.isSymbolicLink()) {
@@ -56,9 +61,6 @@ export async function deleteSkillPermanent(
   if (options.fromCatalog) {
     const catalogTarget = path.join(GLOBAL_CATALOG_SKILLS_DIR, skillName);
     const globalSkillsTarget = path.join(GLOBAL_SKILLS_DIR, skillName);
-
-    // Also disable globally across ZCode/Claude/DSH first
-    await disableGlobalSkill(skillName);
 
     if (fs.existsSync(catalogTarget)) {
       try {

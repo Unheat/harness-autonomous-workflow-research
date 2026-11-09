@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 
 const { listLocalSkills, addSkill, removeSkill, createLocalSkill } = await import('../.agent/src/skills');
-const { GLOBAL_SKILLS_DIR } = await import('../.agent/src/config');
+const { GLOBAL_CATALOG_SKILLS_DIR } = await import('../.agent/src/config');
 
 describe('skills module', () => {
   test('boundary validation: rejects malicious or empty names', async () => {
@@ -28,7 +28,7 @@ describe('skills module', () => {
 
     // Create a mock skill in global catalog
     const mockSkillName = 'test-mock-skill-xyz';
-    const mockGlobalDir = path.join(GLOBAL_SKILLS_DIR, mockSkillName);
+    const mockGlobalDir = path.join(GLOBAL_CATALOG_SKILLS_DIR, mockSkillName);
     await fsp.mkdir(mockGlobalDir, { recursive: true });
     await fsp.writeFile(path.join(mockGlobalDir, 'SKILL.md'), '---\nname: mock\n---\nMock content');
 

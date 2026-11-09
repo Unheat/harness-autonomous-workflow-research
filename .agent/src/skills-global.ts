@@ -6,6 +6,7 @@ import os from 'node:os';
 import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_ZCODE_CONFIG } from './config';
 import { listLocalSkills } from './skills';
 import { getCatalogSkills, getSkillDescription, syncSkillToCatalog } from './catalog';
+import { globalSkillRoots, isValidSkillName } from './skill-paths';
 import type { EffectiveSkillInfo, SkillScope, OperationResult } from './types';
 
 export interface GlobalActiveSkill {
@@ -33,13 +34,9 @@ export async function listGlobalActiveSkills(): Promise<GlobalActiveSkill[]> {
 
   const activeMap = new Map<string, GlobalActiveSkill>();
 
-  const globalDirs: { dir: string; source: 'zcode_user' | 'claude_user' | 'agents_global' }[] = [
-    { dir: path.join(home, '.zcode', 'skills'), source: 'zcode_user' },
-    { dir: path.join(home, '.claude', 'skills'), source: 'claude_user' },
-    { dir: path.join(home, '.cursor', 'skills'), source: 'agents_global' },
-    { dir: path.join(home, '.codex', 'skills'), source: 'agents_global' },
-    { dir: GLOBAL_SKILLS_DIR, source: 'agents_global' }
-  ];
+  const globalDirs = globalSkillRoots().map((dir, index) => ({
+    dir, source: (index === 0 ? 'zcode_user' : index === 1 ? 'claude_user' : 'agents_global') as GlobalActiveSkill['source']
+  }));
 
   for (const { dir, source } of globalDirs) {
     if (!fs.existsSync(dir)) continue;
@@ -51,7 +48,7 @@ export async function listGlobalActiveSkills(): Promise<GlobalActiveSkill[]> {
           if (fs.existsSync(md)) {
             let canonical = md;
             try { canonical = fs.realpathSync(md); } catch {}
-            const isDisabled = disabledMap[canonical]?.enable === false || disabledMap[md]?.enable === false;
+            const isDisabled = source === 'zcode_user' && (disabledMap[canonical]?.enable === false || disabledMap[md]?.enable === false);
             if (!isDisabled && !activeMap.has(e.name)) {
               activeMap.set(e.name, { name: e.name, source, path: md });
             }
@@ -117,6 +114,7 @@ export async function getEffectiveSkillsList(workspaceRoot: string): Promise<Eff
 }
 
 export async function enableGlobalSkill(skillName: string): Promise<OperationResult> {
+  if (!isValidSkillName(skillName)) return { success: false, message: 'Invalid skill name.' };
   const home = os.homedir();
   const zcodeSkillsDir = path.join(home, '.zcode', 'skills');
   const claudeSkillsDir = path.join(home, '.claude', 'skills');
@@ -141,15 +139,26 @@ export async function enableGlobalSkill(skillName: string): Promise<OperationRes
     return { success: false, message: `Skill "${skillName}" not found in catalog.` };
   }
 
-  await fsp.mkdir(zcodeSkillsDir, { recursive: true });
-  await fsp.mkdir(claudeSkillsDir, { recursive: true });
-  await fsp.mkdir(GLOBAL_SKILLS_DIR, { recursive: true });
-
-  const targets = [
-    path.join(zcodeSkillsDir, skillName),
-    path.join(claudeSkillsDir, skillName),
-    path.join(GLOBAL_SKILLS_DIR, skillName)
-  ];
+  const sourceAlias = path.join(source, 'SKILL.md');
+  source = await fsp.realpath(source);
+  let zcodeRaw: string | undefined;
+  let zcodeConfig: any;
+  try {
+    if (fs.existsSync(GLOBAL_ZCODE_CONFIG)) {
+      zcodeRaw = await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf8');
+      zcodeConfig = JSON.parse(zcodeRaw);
+      if (!zcodeConfig || typeof zcodeConfig !== 'object' || Array.isArray(zcodeConfig)) throw new Error('Expected configuration object');
+      if (zcodeConfig.skills && (typeof zcodeConfig.skills !== 'object' || Array.isArray(zcodeConfig.skills))) throw new Error('Expected skills object');
+    }
+  } catch (error: any) { return { success: false, message: `Invalid ZCode config: ${error.message}` }; }
+  const roots = globalSkillRoots();
+  const targets = [...new Set(roots.map(root => path.join(root, skillName)))];
+  // Physical user folders are not disposable adapters. Require explicit migration.
+  for (const target of targets) {
+    const stat = await fsp.lstat(target).catch(() => null);
+    if (stat && !stat.isSymbolicLink()) return { success: false, message: `Preserved physical skill: ${target}; explicit migration required.` };
+  }
+  for (const root of roots) await fsp.mkdir(root, { recursive: true });
 
   try {
     for (const target of targets) {
@@ -159,51 +168,55 @@ export async function enableGlobalSkill(skillName: string): Promise<OperationRes
           const currentLink = await fsp.readlink(target).catch(() => '');
           if (currentLink === source) continue;
           await fsp.unlink(target);
-        } else if (stat.isDirectory()) {
-          await syncSkillToCatalog(target, skillName);
-          await fsp.rm(target, { recursive: true, force: true });
         }
+
       }
       await fsp.symlink(source, target);
     }
-    return { success: true, message: `Skill "${skillName}" enabled globally across ZCode, Claude, and DSH.` };
+    if (zcodeRaw !== undefined) {
+      const raw = zcodeRaw;
+      const config = zcodeConfig;
+      if (config.skills) {
+        const paths = new Set(targets.map(target => path.join(target, 'SKILL.md')));
+        paths.add(sourceAlias);
+        paths.add(path.join(source, 'SKILL.md'));
+        paths.add(await fsp.realpath(path.join(source, 'SKILL.md')));
+        for (const key of Object.keys(config.skills)) {
+          if (paths.has(key) && config.skills[key] && typeof config.skills[key] === 'object') delete config.skills[key].enable;
+        }
+        const updated = JSON.stringify(config, null, 2) + '\n';
+        if (updated !== raw) await fsp.writeFile(GLOBAL_ZCODE_CONFIG, updated);
+      }
+    }
+    return { success: true, message: `Skill "${skillName}" enabled globally across supported harnesses.` };
   } catch (err: any) {
     return { success: false, message: `Failed to enable global skill: ${err.message}` };
   }
 }
 
 export async function disableGlobalSkill(skillName: string): Promise<OperationResult> {
-  const home = os.homedir();
-  const targets = [
-    path.join(home, '.zcode', 'skills', skillName),
-    path.join(home, '.claude', 'skills', skillName),
-    path.join(home, '.cursor', 'skills', skillName),
-    path.join(home, '.codex', 'skills', skillName),
-    path.join(GLOBAL_SKILLS_DIR, skillName)
-  ];
-
-  let disabledAny = false;
-
+  if (!isValidSkillName(skillName)) return { success: false, message: 'Invalid skill name.' };
+  const targets = globalSkillRoots().map(root => path.join(root, skillName));
   for (const target of targets) {
-    try {
-      const stat = await fsp.lstat(target).catch(() => null);
-      if (!stat) continue;
-
-      if (stat.isSymbolicLink()) {
+    const stat = await fsp.lstat(target).catch(() => null);
+    if (stat && !stat.isSymbolicLink()) return { success: false, message: `Preserved physical skill: ${target}; explicit migration required.` };
+  }
+  let disabledAny = false;
+  const seen = new Set<string>();
+  try {
+    for (const target of targets) {
+      // Root adapters can alias the same directory.
+      const parent = await fsp.realpath(path.dirname(target)).catch(() => path.dirname(target));
+      const key = path.join(parent, skillName);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (await fsp.lstat(target).catch(() => null)) {
         await fsp.unlink(target);
         disabledAny = true;
-      } else if (stat.isDirectory()) {
-        await syncSkillToCatalog(target, skillName);
-        await fsp.rm(target, { recursive: true, force: true });
-        disabledAny = true;
       }
-    } catch {}
+    }
+    return { success: disabledAny, message: disabledAny ? `Skill "${skillName}" disabled globally.` : 'Skill was not globally active.' };
+  } catch (error: any) {
+    return { success: false, message: `Failed to disable global skill: ${error.message}` };
   }
-
-  return {
-    success: disabledAny,
-    message: disabledAny
-      ? `Skill "${skillName}" disabled globally across all harnesses.`
-      : `Skill "${skillName}" was not active as a global skill.`
-  };
 }
