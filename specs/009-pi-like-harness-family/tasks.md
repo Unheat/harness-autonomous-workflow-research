@@ -50,6 +50,12 @@
 - [x] T021 [US4] Make projection sync report only real writes (`changed`), so repeat runs are silent.
 - [x] T022 [US4] Default exposure to `direct` for parity with other harnesses; keep per-server opt-in through the hub.
 
+## Phase 5.5: Cross-resource coverage
+
+- [x] T022a Generalise the skills-adapter pruning to `NATIVE_SKILL_DISCOVERY_HARNESSES` (`['.zcode', '.pi']`) in `.agent/src/workspace.ts`, keeping physical skills folders intact.
+- [x] T022b Document the harness x resource matrix (skills / subagents / MCP) in `docs/ARCHITECTURE.md` section 3.2, including the deliberate pi subagent gap.
+- [x] T022c Test that a redundant `.pi/skills` link is pruned while a physical folder survives.
+
 ## Phase 6: Tests & Docs
 
 - [x] T014 [P] Add `tests/pi-projection.test.ts` (20 cases: dialect, lifecycle, symlink poisoning, trust semantics, hub integration).

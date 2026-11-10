@@ -87,6 +87,28 @@ Rules:
 - Projected tools default to `direct` exposure: the same `.mcp.json` must mean the same availability in every
   harness. `deferred`/`codemode` stay opt-in per server.
 
+### 3.2 Coverage Matrix: Harness x Resource Kind
+
+Every cell is one of: **native** (harness reads the hub directly, no adapter), **link** (symlink into the hub),
+**projection** (generated artifact), or **unsupported** (harness has no such concept — do not fabricate an adapter).
+
+| Harness | Skills | Subagents | MCP |
+|---|---|---|---|
+| Claude Code | link `.claude/skills` | link `.claude/agents` | native `.mcp.json` |
+| Cursor | link `.cursor/skills` | link `.cursor/agents` | link `.cursor/mcp.json` |
+| Codex | link `.codex/skills` | link `.codex/agents` | `~/.codex/config.toml` |
+| OpenCode | link `.opencode/skills` | link `.opencode/agents` | `~/.config/opencode/opencode.json` |
+| ZCode | **native** `.agents/skills` (adapter pruned) | link `.zcode/agents` | `~/.zcode/cli/config.json` (user scope store) |
+| DeepSeek Harness (DSH) | link `.dsh/skills` | link `.dsh/agents` | **projection** `cordis.patch.yml` |
+| pi / pi-like | **native** `.agents/skills` (user + ancestors, trust-gated) | **unsupported** — no `.pi/agents`; subagents arrive through the host's own delegation | **projection** `<workspace>/.pi/mcp.json` + `<agentDir>/mcp.json` |
+
+Two rules that follow from the matrix:
+
+1. A harness that discovers a hub location natively gets its adapter **pruned**, not created
+   (`NATIVE_SKILL_DISCOVERY_HARNESSES`) — otherwise the same skills appear twice in the prompt.
+2. An **unsupported** cell stays empty on purpose. Writing `.pi/agents` would be cargo cult: pi never reads
+   it, so the files would look configured while being invisible at runtime.
+
 Detailed pi trust semantics: [`docs/solutions/pi-like-harness-projection.md`](solutions/pi-like-harness-projection.md).
 
 ---

@@ -98,6 +98,14 @@ assert `auditWorkspace` reports one stale-projection warning and one trust warni
 - **FR-11**: Only names the manager does not own count as unmigrated declarations, so a generated projection is
   never destroyed by centralisation.
 
+## Cross-Resource Coverage
+
+Skills: pi discovers `.agents/skills` natively at user scope and from the workspace up to the git root
+(project scope, trust-gated), so a skills adapter must be pruned rather than created — the same rule ZCode
+already follows. Subagents: pi has no `.pi/agents` concept, so the manager deliberately exposes none; writing
+one would look configured but be invisible at runtime. The full matrix lives in
+`docs/ARCHITECTURE.md` section 3.2.
+
 ## Non-Goals
 
 - Granting or revoking harness trust, or writing `trust.json`.

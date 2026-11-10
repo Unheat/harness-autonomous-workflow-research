@@ -29,7 +29,14 @@ export const GENERATED_PROJECTION_FILES: GeneratedProjectionDef[] = [
   { path: '.pi/mcp.json', keepPhysicalFile: true, reason: 'pi reads a generated projection, not the hub' }
 ];
 
-// ZCode reads .agents/skills natively: a second skills adapter duplicates prompts.
+/**
+ * Harnesses that read `.agents/skills` without an adapter.
+ * ZCode treats the folder as its skills root; pi scans it from the project directory up to the git
+ * root (its `.agents/skills` ancestor discovery). Both need pruning, not symlinking: a second
+ * pointer would duplicate every skill in the prompt.
+ */
+export const NATIVE_SKILL_DISCOVERY_HARNESSES: string[] = ['.zcode', '.pi'];
+
 export const ADAPTER_SYMLINKS: AdapterSymlinkDef[] = [
   // Skills adapters
   { link: '.claude/skills', target: '../.agents/skills' },
@@ -73,14 +80,19 @@ export async function reconcileWorkspaceAdapters(root: string): Promise<string[]
     await fsp.symlink(target, full);
     actions.push(`Reconciled adapter: ${link}`);
   }
-  const zcodeSkills = path.join(root, '.zcode', 'skills');
-  const stat = await fsp.lstat(zcodeSkills).catch((err: NodeJS.ErrnoException) => {
-    if (err.code === 'ENOENT') return null;
-    throw err;
-  });
-  if (stat?.isSymbolicLink() && path.resolve(path.dirname(zcodeSkills), await fsp.readlink(zcodeSkills)) === path.join(root, '.agents', 'skills')) {
-    await fsp.unlink(zcodeSkills);
-    actions.push('Pruned redundant .zcode/skills adapter (native .agents/skills discovery)');
+  // Harnesses that discover `.agents/skills` on their own need no skills adapter: a second pointer
+  // would duplicate every skill in the prompt.
+  for (const harnessDir of NATIVE_SKILL_DISCOVERY_HARNESSES) {
+    const nativeSkills = path.join(root, harnessDir, 'skills');
+    const stat = await fsp.lstat(nativeSkills).catch((err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') return null;
+      throw err;
+    });
+    if (!stat?.isSymbolicLink()) continue;
+    const pointsAtHub = path.resolve(path.dirname(nativeSkills), await fsp.readlink(nativeSkills)) === path.join(root, '.agents', 'skills');
+    if (!pointsAtHub) continue;
+    await fsp.unlink(nativeSkills);
+    actions.push(`Pruned redundant ${harnessDir}/skills adapter (native .agents/skills discovery)`);
   }
 
   // Active safety guard: prune symlinked harness projections that would double-mount or

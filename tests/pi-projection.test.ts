@@ -175,6 +175,20 @@ describe('pi project projection lifecycle', () => {
     await reconcileWorkspaceAdapters(tmpDir);
     expect(fs.existsSync(getPiProjectMcpPath(tmpDir))).toBe(true);
   });
+
+  test('prunes a redundant .pi/skills adapter but keeps a physical skills folder', async () => {
+    await fsp.mkdir(path.join(tmpDir, '.agents', 'skills'), { recursive: true });
+    await fsp.mkdir(path.join(tmpDir, '.pi'), { recursive: true });
+    await fsp.symlink('../.agents/skills', path.join(tmpDir, '.pi', 'skills'));
+
+    const actions = await reconcileWorkspaceAdapters(tmpDir);
+    expect(actions.some(a => a.includes('.pi/skills'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.pi', 'skills'))).toBe(false);
+
+    await fsp.mkdir(path.join(tmpDir, '.pi', 'skills'), { recursive: true });
+    await reconcileWorkspaceAdapters(tmpDir);
+    expect(fs.lstatSync(path.join(tmpDir, '.pi', 'skills')).isDirectory()).toBe(true);
+  });
 });
 
 describe('pi trust resolution (mirrors nearest-ancestor semantics)', () => {
