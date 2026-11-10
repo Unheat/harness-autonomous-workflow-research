@@ -4,6 +4,7 @@ import { GLOBAL_ZCODE_CONFIG } from './config';
 import { listLocalMcps } from './mcp';
 import { getCatalogMcps } from './catalog';
 import { syncDshProfileMcps } from './mcp-dsh';
+import { syncPiUserScopeMcps } from './services/pi-mcp-projection';
 import type { McpServerConfig, OperationResult, McpScopeState, EffectiveMcpInfo } from './types';
 
 /**
@@ -22,6 +23,8 @@ export async function listGlobalMcps(): Promise<Record<string, McpServerConfig>>
 
 /**
  * Saves Global MCP servers to ~/.zcode/cli/config.json.
+ * User scope is the manager's store, so every projection that mirrors it (DSH profile, pi-like
+ * agent directories) is refreshed here — a global toggle must reach every harness at once.
  */
 export async function saveGlobalMcps(servers: Record<string, McpServerConfig>): Promise<void> {
   if (!fs.existsSync(GLOBAL_ZCODE_CONFIG)) return;
@@ -32,6 +35,7 @@ export async function saveGlobalMcps(servers: Record<string, McpServerConfig>): 
     zcfg.mcp.servers = servers;
     await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify(zcfg, null, 2) + '\n', 'utf-8');
     await syncDshProfileMcps(servers).catch(() => {});
+    await syncPiUserScopeMcps(servers).catch(() => {});
   } catch (err: any) {
     throw new Error(`Failed to save global config: ${err.message}`);
   }

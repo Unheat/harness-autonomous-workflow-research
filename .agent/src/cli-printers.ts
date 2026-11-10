@@ -178,6 +178,7 @@ export function printHelp(): void {
   console.log(`  ${COLORS.BOLD}skill global on/off <n>${COLORS.RESET}Toggle skill globally (ZCode, Claude, DSH)`);
   console.log(`  ${COLORS.BOLD}mcp on/off/rm <srv>${COLORS.RESET}    Manage local workspace MCP server`);
   console.log(`  ${COLORS.BOLD}mcp global on/off/rm${COLORS.RESET}   Manage global MCP server in ~/.zcode/cli/config.json`);
+  console.log(`  ${COLORS.BOLD}mcp sync${COLORS.RESET}                Re-project manager truth into DSH + pi-like harnesses`);
   console.log(`  ${COLORS.BOLD}agent list${COLORS.RESET}             List subagents with Token Shield status`);
   console.log(`  ${COLORS.BOLD}agent shield <name> <m>${COLORS.RESET}Toggle subagent Token Shield (on | off)`);
   console.log(`  ${COLORS.BOLD}agent delete <name>${COLORS.RESET}    Permanently delete a subagent file`);

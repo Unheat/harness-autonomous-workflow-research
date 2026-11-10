@@ -6,6 +6,7 @@ import { addSkill, removeSkill, createLocalSkill } from '../src/skills';
 import { enableGlobalSkill, disableGlobalSkill, deleteSkillPermanent } from '../src/services/skill-service';
 import { enableMcp, disableMcp, removeMcp, registerMcpInCatalog } from '../src/mcp';
 import { enableGlobalMcp, disableGlobalMcp, removeGlobalMcp } from '../src/mcp-global';
+import { syncHarnessProjections } from '../src/services/harness-sync-service';
 import { toggleSubagentTokenShield, deleteSubagentFile, findSubagentPath } from '../src/services/subagent-service';
 import { readConfigFile, resolveConfigPath, type ConfigTarget } from '../src/services/config-service';
 import { healWorkspace, cleanGlobal } from '../src/doctor';
@@ -128,12 +129,19 @@ async function handleMcpCommand(args: string[], root: string): Promise<void> {
   } else if (['rm', 'remove', 'delete'].includes(sub) && target) {
     const res = await removeMcp(root, target);
     console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
+  } else if (['sync', 'project', 'refresh'].includes(sub)) {
+    const report = await syncHarnessProjections(root);
+    report.actions.forEach(a => console.log(colorize(`• ${a}`, COLORS.GREEN)));
+    report.warnings.forEach(w => console.log(colorize(`⚠️  ${w}`, COLORS.YELLOW)));
+    if (report.actions.length === 0 && report.warnings.length === 0) {
+      console.log(colorize('• All harness projections already match the manager (no changes).', COLORS.GREEN));
+    }
   } else if (['add', 'register'].includes(sub) && target && args[2]) {
     await registerMcpInCatalog(target, { command: args[2], args: args.slice(3) });
     await enableMcp(root, target);
     console.log(colorize(`✅ Registered in catalog and enabled in workspace: ${target}`, COLORS.GREEN));
   } else {
-    console.log('Usage: mcp on <srv> | mcp off <srv> | mcp rm <srv> | mcp global on/off/rm <srv>');
+    console.log('Usage: mcp on <srv> | mcp off <srv> | mcp rm <srv> | mcp global on/off/rm <srv> | mcp sync');
   }
 }
 

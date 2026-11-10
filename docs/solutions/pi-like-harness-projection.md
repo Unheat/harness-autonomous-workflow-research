@@ -37,5 +37,15 @@ tool as unavailable even though `.mcp.json` declared them and the harness manage
   fails to match.
 - Keep the projection byte-stable; drift detection compares exact serialized text.
 
-**Verification**: `bun test` (117 passing) including 20 cases in `tests/pi-projection.test.ts`; live
+**Follow-up bugs found while wiring the live harness (fixed)**
+
+1. Doctor reported the generated `<agentDir>/mcp.json` as an *unmigrated declaration*, so `harness heal` would
+   have deleted a file the manager itself owns. Ownership rule now: a name in the manager's user scope is a
+   projection, anything else is a declaration — only the latter is discovered for centralisation.
+2. `harness mcp sync` reported work on every run even when nothing changed. Projection results now carry
+   `changed`, and only real writes are reported, so repeat runs are silent and drift reports stay trustworthy.
+3. Exposure defaulted to `deferred`, which made pi-only behaviour differ from every always-injecting harness.
+   `direct` is now the default, with per-server opt-in to `deferred`/`codemode` in `.mcp.json`.
+
+**Verification**: `bun test` (124 passing) including 27 cases in `tests/pi-projection.test.ts`; live
 `harness doctor` reports a missing projection and the untrusted discovered harness.

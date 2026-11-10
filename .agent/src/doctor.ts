@@ -8,9 +8,10 @@ import { ensureSkillInvocable } from './catalog';
 import { listGlobalActiveSkills } from './skills-global';
 import { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps } from './clean-global';
 import { listLocalMcps } from './mcp';
-import { syncDshProfileMcps } from './mcp-dsh';
-import { inspectPiProjection, syncPiProjectMcps } from './services/pi-mcp-projection';
-import { describePiTrustGaps } from './services/pi-harness-trust';
+import { listGlobalMcps } from './mcp-global';
+import { inspectPiProjection, inspectPiUserScope } from './services/pi-mcp-projection';
+import { describePiTrustGaps, listExistingPiAgentDirs } from './services/pi-harness-trust';
+import { syncHarnessProjections } from './services/harness-sync-service';
 import type { AuditResult, AuditIssue } from './types';
 
 export { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps };
@@ -148,7 +149,19 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     }
   }
 
-  // 6. Audit subagent token shields
+  // 6. Audit user-scope projections: `<agentDir>/mcp.json` must mirror the manager's global scope
+  const globalMcps = await listGlobalMcps();
+  for (const agentDir of listExistingPiAgentDirs()) {
+    const userScope = inspectPiUserScope(agentDir, globalMcps);
+    if (userScope.state === 'missing' || userScope.state === 'stale') {
+      issues.push({
+        severity: 'warning',
+        message: `${userScope.path} is ${userScope.state} (${userScope.servers} user-scope server(s) expected). Run \`harness mcp sync\` to align it with the manager.`
+      });
+    }
+  }
+
+  // 7. Audit subagent token shields
   const subagentsDir = path.join(root, '.agent', 'agents');
   if (fs.existsSync(subagentsDir)) {
     try {
@@ -223,20 +236,9 @@ export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
   const mcpMigrationActions = await centralizeHarnessMcps();
   actions.push(...mcpMigrationActions);
 
-  // Sync workspace MCP servers into DeepSeek Harness profile
-  const localMcps = await listLocalMcps(root);
-  await syncDshProfileMcps(localMcps).catch(() => {});
-
-  // Regenerate the pi-like harness projection (.pi/mcp.json) from the hub
-  if (localMcps && Object.keys(localMcps).length > 0) {
-    const projection = await syncPiProjectMcps(root, localMcps).catch(() => null);
-    if (projection && projection.servers > 0) {
-      actions.push(`Regenerated ${projection.path} for pi-like harnesses (${projection.servers} server(s))`);
-    }
-    for (const issue of projection?.issues ?? []) {
-      actions.push(`Skipped pi-incompatible MCP server "${issue.server}": ${issue.reason}`);
-    }
-  }
+  // Refresh every generated harness projection from the manager's stores
+  const syncReport = await syncHarnessProjections(root);
+  actions.push(...syncReport.actions, ...syncReport.warnings);
 
   return actions;
 }

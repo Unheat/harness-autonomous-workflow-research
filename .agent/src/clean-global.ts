@@ -6,6 +6,7 @@ import os from 'node:os';
 import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_ZCODE_CONFIG, GLOBAL_CATALOG_DIR, GLOBAL_MCPS_FILE } from './config';
 import { syncSkillToCatalog, getCatalogMcps } from './catalog';
 import { listExistingPiAgentDirs } from './services/pi-harness-trust';
+import { listGlobalMcps } from './mcp-global';
 import type { CleanGlobalResult } from './types';
 
 export interface CleanGlobalOptions {
@@ -126,13 +127,19 @@ export async function discoverUnmigratedHarnessMcps(): Promise<UnmigratedHarness
 
   // 6. pi-like harnesses: <agentDir>/mcp.json. Stock pi lives at ~/.pi/agent; hosts that embed
   // pi relocate their agent directory, so the registry is consulted instead of a vendor path.
+  // The file is a GENERATED projection of the manager's user scope, so names the manager already
+  // owns are not declarations: only extra names are unmigrated and worth centralising.
+  const managedUserScope = new Set(Object.keys(await listGlobalMcps()));
   for (const agentDir of listExistingPiAgentDirs()) {
     const piMcp = path.join(agentDir, 'mcp.json');
     if (!fs.existsSync(piMcp)) continue;
     try {
       const raw = await fsp.readFile(piMcp, 'utf-8');
       const cfg = JSON.parse(raw);
-      const servers = filterExternal(cfg?.mcpServers || {});
+      const declared = filterExternal(cfg?.mcpServers || {});
+      const servers = Object.fromEntries(
+        Object.entries(declared).filter(([name]) => !managedUserScope.has(name))
+      );
       if (Object.keys(servers).length > 0) {
         results.push({ harness: `pi-like (${agentDir})`, filePath: piMcp, servers });
       }

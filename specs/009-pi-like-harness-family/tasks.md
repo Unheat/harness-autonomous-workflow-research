@@ -41,7 +41,16 @@
 
 **Checkpoint**: Doctor names both the drift and the untrusted harness, and never offers to write `trust.json`.
 
-## Phase 5: Tests & Docs
+## Phase 5: User Story 4 - Manager as ground truth for both scopes (P1)
+
+- [x] T017 [US4] Add `getPiUserScopeMcpPath`, `inspectPiUserScope`, `syncPiUserScopeMcps` to `.agent/src/services/pi-mcp-projection.ts` (shared `inspectAt`/`syncAt` internals).
+- [x] T018 [US4] Refresh user-scope projections on every global toggle in `.agent/src/mcp-global.ts`.
+- [x] T019 [US4] Add `.agent/src/services/harness-sync-service.ts` and the `harness mcp sync` command for a non-destructive push (DSH profile + both pi scopes).
+- [x] T020 [US4] Stop centralisation from treating generated projections as declarations in `.agent/src/clean-global.ts` (only manager-unknown names are unmigrated).
+- [x] T021 [US4] Make projection sync report only real writes (`changed`), so repeat runs are silent.
+- [x] T022 [US4] Default exposure to `direct` for parity with other harnesses; keep per-server opt-in through the hub.
+
+## Phase 6: Tests & Docs
 
 - [x] T014 [P] Add `tests/pi-projection.test.ts` (20 cases: dialect, lifecycle, symlink poisoning, trust semantics, hub integration).
 - [x] T015 [P] Update `docs/ARCHITECTURE.md` and add `docs/solutions/pi-like-harness-projection.md`.

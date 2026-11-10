@@ -8,8 +8,11 @@ import os from 'node:os';
 const { buildPiMcpEntry, buildPiProjection } = await import('../.agent/src/services/pi-mcp-dialect');
 const {
   getPiProjectMcpPath,
+  getPiUserScopeMcpPath,
   inspectPiProjection,
-  syncPiProjectMcps
+  inspectPiUserScope,
+  syncPiProjectMcps,
+  syncPiUserScopeMcps
 } = await import('../.agent/src/services/pi-mcp-projection');
 const {
   readPiProjectTrust,
@@ -19,6 +22,8 @@ const {
 const { PI_AGENT_DIR_ENV, PI_LIKE_AGENT_DIRS_ENV, PI_TRUST_BASENAME } = await import('../.agent/src/config');
 const { reconcileWorkspaceAdapters } = await import('../.agent/src/workspace');
 const { enableMcp, disableMcp, saveLocalMcps } = await import('../.agent/src/mcp');
+const { enableGlobalMcp } = await import('../.agent/src/mcp-global');
+const { syncHarnessProjections } = await import('../.agent/src/services/harness-sync-service');
 
 let tmpDir: string;
 
@@ -50,7 +55,8 @@ describe('pi-like harness dialect translation', () => {
       args: ['--verbose'],
       env: { API_KEY: 'test-123' },
       cwd: '/tmp/repo',
-      description: 'Structural code search'
+      description: 'Structural code search',
+      exposure: 'direct'
     });
     expect('transport' in built.entry).toBe(false);
     expect('disabled' in built.entry).toBe(false);
@@ -60,7 +66,15 @@ describe('pi-like harness dialect translation', () => {
     const built = buildPiMcpEntry('empty-ish', { command: 'node', args: [], env: {} });
     expect(built.ok).toBe(true);
     if (!built.ok) return;
-    expect(built.entry).toEqual({ command: 'node', args: [] });
+    expect(built.entry).toEqual({ command: 'node', args: [], exposure: 'direct' });
+  });
+
+  test('exposure defaults to direct (parity with other harnesses) and honours a per-server override', () => {
+    const parity = buildPiMcpEntry('a', { command: 'x' });
+    const optedOut = buildPiMcpEntry('b', { command: 'x', exposure: 'deferred' } as any);
+
+    expect(parity.ok && parity.entry.exposure).toBe('direct');
+    expect(optedOut.ok && optedOut.entry.exposure).toBe('deferred');
   });
 
   test('dormant servers stay listed with enabled: false (pi lists but does not connect)', () => {
@@ -82,6 +96,7 @@ describe('pi-like harness dialect translation', () => {
     expect(built.entry.url).toBe('https://mcp.example.com/mcp');
     expect(built.entry.headers).toEqual({ Authorization: 'Bearer token' });
     expect('command' in built.entry).toBe(false);
+    expect(built.entry.exposure).toBe('direct');
   });
 
   test('rejects what pi rejects instead of writing an entry it would silently skip', () => {
@@ -113,7 +128,7 @@ describe('pi project projection lifecycle', () => {
 
     const target = getPiProjectMcpPath(tmpDir);
     expect(JSON.parse(await fsp.readFile(target, 'utf-8'))).toEqual({
-      mcpServers: { search2ai: { command: '/bin/search2ai-mcp', args: [] } }
+      mcpServers: { search2ai: { command: '/bin/search2ai-mcp', args: [], exposure: 'direct' } }
     });
 
     expect((await syncPiProjectMcps(tmpDir, servers)).state).toBe('current');
@@ -242,12 +257,96 @@ describe('pi trust resolution (mirrors nearest-ancestor semantics)', () => {
   });
 });
 
+describe('user scope: agent-dir projection is the manager, not a hand-maintained file', () => {
+  async function seedAgentDir(): Promise<string> {
+    const agentDir = path.join(tmpDir, '.pi', 'agent');
+    await fsp.mkdir(agentDir, { recursive: true });
+    process.env[PI_AGENT_DIR_ENV] = agentDir;
+    return agentDir;
+  }
+
+  test('projects the manager global scope into every existing agent directory', async () => {
+    const agentDir = await seedAgentDir();
+    const results = await syncPiUserScopeMcps({ hindsight: { command: '/bin/hindsight' } });
+
+    expect(results).toHaveLength(1);
+    expect(results[0].path).toBe(getPiUserScopeMcpPath(agentDir));
+    expect(JSON.parse(await fsp.readFile(results[0].path, 'utf-8'))).toEqual({
+      mcpServers: { hindsight: { command: '/bin/hindsight', args: [], exposure: 'direct' } }
+    });
+  });
+
+  test('narrows a hand-written agent-dir file down to the manager active set', async () => {
+    const agentDir = await seedAgentDir();
+    const handWritten = {
+      mcpServers: {
+        hindsight: { command: '/bin/hindsight' },
+        stale: { command: '/bin/stale' }
+      }
+    };
+    await fsp.writeFile(getPiUserScopeMcpPath(agentDir), JSON.stringify(handWritten), 'utf-8');
+
+    expect(inspectPiUserScope(agentDir, { hindsight: { command: '/bin/hindsight' } }).state).toBe('stale');
+    await syncPiUserScopeMcps({ hindsight: { command: '/bin/hindsight' } });
+
+    const written = JSON.parse(await fsp.readFile(getPiUserScopeMcpPath(agentDir), 'utf-8'));
+    expect(Object.keys(written.mcpServers)).toEqual(['hindsight']);
+  });
+
+  test('skips agent directories that do not exist instead of materialising them', async () => {
+    process.env[PI_AGENT_DIR_ENV] = path.join(tmpDir, 'never-used-harness');
+    const results = await syncPiUserScopeMcps({ hindsight: { command: '/bin/hindsight' } });
+
+    expect(results).toHaveLength(0);
+    expect(fs.existsSync(path.join(tmpDir, 'never-used-harness'))).toBe(false);
+  });
+
+  test('a global toggle reaches the agent-dir projection in the same call', async () => {
+    const agentDir = await seedAgentDir();
+    await enableGlobalMcp('codebase-memory');
+
+    const written = JSON.parse(await fsp.readFile(getPiUserScopeMcpPath(agentDir), 'utf-8'));
+    expect(written.mcpServers['codebase-memory']).toEqual({ command: 'test-memory-server', args: [], exposure: 'direct' });
+  });
+
+  test('syncHarnessProjections reports both scopes and keeps the hub untouched', async () => {
+    const agentDir = await seedAgentDir();
+    // Written directly so the projection is missing: sync must create it and report it.
+    await fsp.writeFile(
+      path.join(tmpDir, '.mcp.json'),
+      JSON.stringify({ mcpServers: { gitmcp: { command: '/bin/gitmcp' } } }),
+      'utf-8'
+    );
+
+    const report = await syncHarnessProjections(tmpDir);
+
+    expect(JSON.parse(await fsp.readFile(path.join(tmpDir, '.mcp.json'), 'utf-8'))).toEqual({
+      mcpServers: { gitmcp: { command: '/bin/gitmcp' } }
+    });
+    expect(JSON.parse(await fsp.readFile(getPiProjectMcpPath(tmpDir), 'utf-8')).mcpServers.gitmcp).toBeDefined();
+    expect(report.actions.some(a => a.includes(path.join(tmpDir, '.pi', 'mcp.json')))).toBe(true);
+    expect(report.warnings).toEqual([]);
+    expect(fs.existsSync(getPiUserScopeMcpPath(agentDir))).toBe(true);
+  });
+
+  test('a second sync is a no-op, so the manager never rewrites what already matches', async () => {
+    await seedAgentDir();
+    await saveLocalMcps(tmpDir, { gitmcp: { command: '/bin/gitmcp' } });
+
+    await syncHarnessProjections(tmpDir);
+    const second = await syncHarnessProjections(tmpDir);
+
+    expect(second.actions).toEqual([]);
+    expect(second.warnings).toEqual([]);
+  });
+});
+
 describe('hub integration', () => {
   test('mcp on / off keep the pi projection in lockstep with the hub', async () => {
     expect((await enableMcp(tmpDir, 'codebase-memory')).success).toBe(true);
 
     const afterEnable = JSON.parse(await fsp.readFile(getPiProjectMcpPath(tmpDir), 'utf-8'));
-    expect(afterEnable.mcpServers['codebase-memory']).toEqual({ command: 'test-memory-server', args: [] });
+    expect(afterEnable.mcpServers['codebase-memory']).toEqual({ command: 'test-memory-server', args: [], exposure: 'direct' });
 
     expect((await disableMcp(tmpDir, 'codebase-memory')).success).toBe(true);
     const afterDisable = JSON.parse(await fsp.readFile(getPiProjectMcpPath(tmpDir), 'utf-8'));
@@ -264,6 +363,6 @@ describe('hub integration', () => {
     expect(hub).toEqual({ mcpServers: { remote: { command: 'x', url: 'https://x.dev/mcp' } } });
 
     const projection = JSON.parse(await fsp.readFile(getPiProjectMcpPath(tmpDir), 'utf-8'));
-    expect(projection.mcpServers.remote).toEqual({ url: 'https://x.dev/mcp' });
+    expect(projection.mcpServers.remote).toEqual({ url: 'https://x.dev/mcp', exposure: 'direct' });
   });
 });

@@ -47,6 +47,24 @@ files survive.
    regenerated as a real file.
 3. **Given** a generated physical projection, **When** adapters reconcile, **Then** the file is preserved.
 
+### User Story 4 - The manager is the ground truth for both scopes (Priority: P1)
+
+A server toggled in the manager must appear or disappear in every harness without anyone hand-editing a
+harness file, and a stale hand-written harness file must converge on the manager's state.
+
+**Independent Test**: Seed an agent directory with a hand-written `mcp.json` containing one stale server, run
+`harness mcp sync`, and assert the file equals the manager's active user scope; run it twice and assert the
+second run reports no changes.
+
+**Acceptance Scenarios**:
+1. **Given** a pi-like agent directory holding extra or stale servers, **When** `harness mcp sync` runs, **Then**
+   the file is rewritten to the manager's active user scope.
+2. **Given** projections that already match, **When** sync runs again, **Then** it reports no work.
+3. **Given** an agent directory that does not exist on this machine, **When** sync runs, **Then** it is not
+   created.
+4. **Given** a generated user-scope projection, **When** auditing, **Then** it is not reported as an unmigrated
+   declaration (only names the manager does not own are).
+
 ### User Story 3 - Drift and trust gaps are visible, never auto-approved (Priority: P2)
 
 An editor or a harness can edit the projection by hand, and a pi-like harness silently ignores an untrusted
@@ -73,6 +91,12 @@ assert `auditWorkspace` reports one stale-projection warning and one trust warni
 - **FR-6**: Read trust with pi's nearest-ancestor, real-path semantics; report gaps; never mutate `trust.json`.
 - **FR-7**: Extend global MCP centralization discovery to every existing pi-like agent directory.
 - **FR-8**: Expose projection state in `harness status` and doctor issues in the Web UI doctor panel.
+- **FR-9**: Project the manager's user scope into every existing pi-like agent directory, on global toggles and
+  on `harness mcp sync`; never materialise an unused harness.
+- **FR-10**: Tool exposure defaults to `direct` for parity with always-injecting harnesses; `deferred`/`codemode`
+  is opt-in per server through the hub declaration.
+- **FR-11**: Only names the manager does not own count as unmigrated declarations, so a generated projection is
+  never destroyed by centralisation.
 
 ## Non-Goals
 

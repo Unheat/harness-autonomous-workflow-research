@@ -54,6 +54,22 @@ that pattern instead of the `ADAPTER_SYMLINKS` pattern used by harnesses that ge
 - `clean-global.ts`: discovers `<agentDir>/mcp.json` for every existing pi-like agent dir.
 - `cli-printers.ts`: one status line with projection count and state.
 
+## 3.1 Phase 2.5 — Two scopes, one owner
+
+pi has two MCP scopes, so the manager projects both from the stores it already owns:
+
+| Manager store | Scope | Projection targets |
+|---|---|---|
+| `~/.zcode/cli/config.json` | user | DSH `cordis.patch.yml`, `<agentDir>/mcp.json` per existing pi-like harness |
+| workspace `.mcp.json` | project | `<workspace>/.pi/mcp.json` |
+
+`harness mcp sync` runs that whole matrix without migrating anything; `harness heal` additionally centralises
+manager-unknown declarations first, then projects. Ownership rule: a name the manager owns is a projection, a
+name it does not own is a declaration — so centralisation can never eat a generated file.
+
+**Exposure policy**: projected entries default to `direct`, because every other harness injects schemas up front
+and the same `.mcp.json` must behave the same everywhere. `deferred`/`codemode` remain available per server.
+
 ## 4. Phase 3 — Trust, tests, docs
 
 - `pi-harness-trust.ts` mirrors pi exactly: canonical (real-path) keys, nearest-ancestor lookup, tolerant JSON

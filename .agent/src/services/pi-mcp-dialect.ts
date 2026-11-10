@@ -20,8 +20,18 @@ export const PI_SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
 /** Transports pi rejects outright; such entries must be redeclared with a streamable HTTP url. */
 const PI_REJECTED_TRANSPORTS = ['sse'] as const;
 
-/** Keys passed through to pi untouched when the hub declares them. */
-const PI_PASSTHROUGH_KEYS = ['exposure', 'toolExposure', 'timeout'] as const;
+/**
+ * Effective tool exposure for projected servers.
+ *
+ * `direct` (declare every schema to the model) is the behaviour every other harness has, so it is
+ * the default here: the same `.mcp.json` must produce the same availability everywhere. pi's own
+ * default is `codemode`, which would make tools unreachable unless the codemode tool happens to be
+ * active, and `deferred` would hide them behind `tool_search`.
+ *
+ * Token thrift is opt-in per server: set `"exposure": "deferred"` (or `"codemode"`) on that server
+ * in `.mcp.json` and the projection carries it through.
+ */
+export const PI_DEFAULT_EXPOSURE = 'direct' as const;
 
 export interface PiProjectionIssue {
   server: string;
@@ -92,10 +102,12 @@ export function buildPiMcpEntry(
 
   if (config.description) entry.description = config.description;
 
+  // pi defaults to `codemode` internally, so the effective exposure is always written explicitly.
   const extended = config as McpServerConfig & Record<string, unknown>;
-  for (const key of PI_PASSTHROUGH_KEYS) {
-    if (extended[key] !== undefined) entry[key] = extended[key];
-  }
+  entry.exposure = typeof extended.exposure === 'string' ? extended.exposure : PI_DEFAULT_EXPOSURE;
+
+  if (extended.toolExposure !== undefined) entry.toolExposure = extended.toolExposure;
+  if (extended.timeout !== undefined) entry.timeout = extended.timeout;
   if (config.enabled === false || config.disabled === true) entry.enabled = false;
 
   return { ok: true, entry };
