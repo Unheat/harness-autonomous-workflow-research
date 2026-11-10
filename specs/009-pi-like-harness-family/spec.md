@@ -106,6 +106,19 @@ already follows. Subagents: pi has no `.pi/agents` concept, so the manager delib
 one would look configured but be invisible at runtime. The full matrix lives in
 `docs/ARCHITECTURE.md` section 3.2.
 
+## Harness Default Preservation
+
+Manager repair must never delete what a harness ships itself. Verified cases and their rules:
+
+- **DSH**: stock plugins exist whose id also starts with `mcp-` (`mcp-resources` =
+  `@deepseek-ai/dsh-mcp-resources`). Ownership is therefore decided by the client plugin name
+  (`@deepseek-ai/dsh-mcp-client`), never by an id prefix.
+- **ZCode**: stores sibling settings beside `mcp.servers` and preserves them itself, so cleanup removes only
+  the migrated server names and keeps every other `mcp.*` key.
+- **Codex**: TOML tables are matched exactly, so migrating `foo` cannot delete `foo_bar` or its sub-tables.
+- **Claude Code**: an administrator `managed-mcp.json` disables user/project MCP entirely; doctor reports it
+  instead of pretending the hub works.
+
 ## Non-Goals
 
 - Granting or revoking harness trust, or writing `trust.json`.

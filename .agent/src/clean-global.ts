@@ -150,6 +150,31 @@ export async function discoverUnmigratedHarnessMcps(): Promise<UnmigratedHarness
 }
 
 /**
+ * Removes one TOML table plus its sub-tables from a config file's text.
+ *
+ * The table path is matched exactly (`[mcp_servers.foo]`, `[mcp_servers.foo.env]`), never as a
+ * prefix, so migrating `foo` cannot delete `foo_bar`. Sub-tables are removed one pass at a time
+ * because each removal ends at the next `[` header.
+ *
+ * @param content Full TOML text.
+ * @param tablePath Dotted table path without brackets, e.g. `mcp_servers.search2ai`.
+ * @returns Text with the table removed plus whether anything matched.
+ */
+export function removeTomlTable(content: string, tablePath: string): { content: string; removed: boolean } {
+  const escaped = tablePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // `(?:\.[^\]]*)?` after the path prevents `foo` from matching `foo_bar`.
+  const source = `\\[${escaped}(?:\\.[^\\]]*)?\\][\\s\\S]*?(?=\\n\\[|$)`;
+  const probe = new RegExp(source);
+  let removed = false;
+  let current = content;
+  while (probe.test(current)) {
+    current = current.replace(new RegExp(source, 'g'), '');
+    removed = true;
+  }
+  return { content: current, removed };
+}
+
+/**
  * Migrates unmigrated harness MCP servers into the central catalog (~/.agents/catalog/mcps.json)
  * and cleans them up from the harness configs to eliminate duplicate declarations.
  */
@@ -179,20 +204,31 @@ export async function centralizeHarnessMcps(): Promise<string[]> {
       if (item.filePath === GLOBAL_ZCODE_CONFIG) {
         const raw = await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8');
         const zcfg = JSON.parse(raw);
-        if (zcfg.mcp) {
-          delete zcfg.mcp;
-          await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify(zcfg, null, 2) + '\n', 'utf-8');
-          actions.push(`Removed migrated MCP servers from ${item.harness} config (${path.basename(item.filePath)})`);
+        // ZCode stores sibling `mcp.*` settings beside `mcp.servers` and preserves them itself
+        // (`mcp: { ...previous, servers }`), so only the migrated names may be removed.
+        if (zcfg.mcp?.servers) {
+          let removed = 0;
+          for (const name of Object.keys(item.servers)) {
+            if (name in zcfg.mcp.servers) {
+              delete zcfg.mcp.servers[name];
+              removed++;
+            }
+          }
+          if (removed > 0) {
+            const mcpKeys = Object.keys(zcfg.mcp);
+            if (mcpKeys.length === 1 && mcpKeys[0] === 'servers') delete zcfg.mcp;
+            await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify(zcfg, null, 2) + '\n', 'utf-8');
+            actions.push(`Removed ${removed} migrated MCP server(s) from ${item.harness} config (${path.basename(item.filePath)})`);
+          }
         }
       } else if (item.filePath.endsWith('.toml')) {
         // For TOML configs like ~/.codex/config.toml, surgical regex removal of migrated [mcp_servers.<name>] sections
         let content = await fsp.readFile(item.filePath, 'utf-8');
         let modified = false;
         for (const name of Object.keys(item.servers)) {
-          // Matches [mcp_servers.<name>] and its subkeys until the next section header [xxx] or end of file
-          const sectionRegex = new RegExp(`\\[mcp_servers\\.${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\]]*\\][\\s\\S]*?(?=\\n\\[|$)`, 'g');
-          if (sectionRegex.test(content)) {
-            content = content.replace(sectionRegex, '');
+          const { content: next, removed } = removeTomlTable(content, `mcp_servers.${name}`);
+          if (removed) {
+            content = next;
             modified = true;
           }
         }

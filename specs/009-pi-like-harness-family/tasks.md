@@ -56,6 +56,14 @@
 - [x] T022b Document the harness x resource matrix (skills / subagents / MCP) in `docs/ARCHITECTURE.md` section 3.2, including the deliberate pi subagent gap.
 - [x] T022c Test that a redundant `.pi/skills` link is pruned while a physical folder survives.
 
+## Phase 5.6: Harness default preservation
+
+- [x] T022d DSH ownership by plugin name (`DSH_MCP_CLIENT_PLUGIN`), so stock `mcp-resources` survives pruning.
+- [x] T022e ZCode cleanup removes only migrated `mcp.servers` names and keeps sibling `mcp.*` settings.
+- [x] T022f Codex `removeTomlTable` matches exact table paths (no `foo`/`foo_bar` prefix collisions).
+- [x] T022g Doctor warns when Claude Code runs under an administrator `managed-mcp.json` policy.
+- [x] T022h `tests/harness-defaults-safety.test.ts` covers all four cases.
+
 ## Phase 6: Tests & Docs
 
 - [x] T014 [P] Add `tests/pi-projection.test.ts` (20 cases: dialect, lifecycle, symlink poisoning, trust semantics, hub integration).

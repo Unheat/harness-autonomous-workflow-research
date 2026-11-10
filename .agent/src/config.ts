@@ -11,6 +11,16 @@ export const GLOBAL_MCPS_FILE = path.join(GLOBAL_CATALOG_DIR, 'mcps.json');
 export const GLOBAL_ZCODE_CONFIG = path.join(HOME_DIR, '.zcode', 'cli', 'config.json');
 export const GLOBAL_CLAUDE_CONFIG = path.join(HOME_DIR, '.claude', 'settings.json');
 
+/**
+ * Administrator MCP policy for Claude Code. When this file exists, Claude ignores user, project and
+ * `--mcp-config` servers entirely, so the hub symlink and every projection are moot there.
+ */
+export const CLAUDE_MANAGED_MCP_CONFIG = process.platform === 'darwin'
+  ? '/Library/Application Support/ClaudeCode/managed-mcp.json'
+  : process.platform === 'win32'
+    ? 'C:\\Program Files\\ClaudeCode\\managed-mcp.json'
+    : '/etc/claude-code/managed-mcp.json';
+
 /** Project-scope config directory read by pi and every pi-derived harness. */
 export const PI_PROJECT_CONFIG_DIR = '.pi';
 

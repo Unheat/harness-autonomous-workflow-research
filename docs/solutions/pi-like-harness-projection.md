@@ -47,5 +47,13 @@ tool as unavailable even though `.mcp.json` declared them and the harness manage
 3. Exposure defaulted to `deferred`, which made pi-only behaviour differ from every always-injecting harness.
    `direct` is now the default, with per-server opt-in to `deferred`/`codemode` in `.mcp.json`.
 
-**Verification**: `bun test` (124 passing) including 27 cases in `tests/pi-projection.test.ts`; live
+**Harness defaults must survive repair (audited)**
+
+- DSH ships `mcp-resources` (`@deepseek-ai/dsh-mcp-resources`) whose id also starts with `mcp-`; pruning by id
+  prefix would delete a stock plugin. Ownership is now the client plugin name.
+- ZCode keeps sibling `mcp.*` settings next to `mcp.servers`; cleanup deletes only migrated server names.
+- Codex TOML removal was unanchored, so removing `foo` also deleted `[mcp_servers.foo_bar]`; now exact.
+- Claude Code under an admin `managed-mcp.json` ignores user/project MCP — doctor reports it.
+
+**Verification**: `bun test` (131 passing) including 27 cases in `tests/pi-projection.test.ts`; live
 `harness doctor` reports a missing projection and the untrusted discovered harness.

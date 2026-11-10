@@ -8,6 +8,13 @@ import type { McpServerConfig } from './types';
 export const DSH_DESKTOP_PATCH = path.join(os.homedir(), '.dsh', 'profiles', 'desktop', 'cordis.patch.yml');
 
 /**
+ * Plugin name every MCP client row uses, including DSH's own documentation examples.
+ * Ownership is decided by this name, never by an id prefix: DSH ships stock plugins such as
+ * `mcp-resources` (`@deepseek-ai/dsh-mcp-resources`) whose id also starts with `mcp-`.
+ */
+export const DSH_MCP_CLIENT_PLUGIN = '@deepseek-ai/dsh-mcp-client';
+
+/**
  * Builds an @deepseek-ai/dsh-mcp-client entry from an McpServerConfig.
  * Accurately handles stdio vs streamable-http/sse, command, args, url, headers, and env.
  */
@@ -36,9 +43,19 @@ export function buildDshMcpEntry(name: string, cfg: McpServerConfig): any {
 
   return {
     id: `mcp-${name}`,
-    name: '@deepseek-ai/dsh-mcp-client',
+    name: DSH_MCP_CLIENT_PLUGIN,
     config
   };
+}
+
+/**
+ * Reports whether a YAML node is an MCP client row written by this manager.
+ *
+ * @param node Parsed YAML map node (or anything else found in the profile sequence).
+ * @returns True only for entries carrying the MCP client plugin name.
+ */
+function isManagerOwnedMcpRow(node: any): boolean {
+  return typeof node?.get === 'function' && node.get('name') === DSH_MCP_CLIENT_PLUGIN;
 }
 
 /**
@@ -60,12 +77,12 @@ export async function syncDshProfileMcps(
 
     const seq: any = doc.contents;
 
-    // Prune existing mcp-* entries from top level and insert blocks
+    // Prune only the MCP client rows this manager writes. Stock DSH plugins (for example
+    // `mcp-resources` = @deepseek-ai/dsh-mcp-resources) share the `mcp-` id prefix and must survive.
     for (let i = seq.items.length - 1; i >= 0; i--) {
       const item = seq.items[i];
       if (item && typeof item.get === 'function') {
-        const id = item.get('id');
-        if (typeof id === 'string' && id.startsWith('mcp-')) {
+        if (isManagerOwnedMcpRow(item)) {
           seq.items.splice(i, 1);
           continue;
         }
@@ -73,9 +90,7 @@ export async function syncDshProfileMcps(
         const insertSeq = item.get('insert');
         if (insertSeq && Array.isArray(insertSeq.items)) {
           for (let j = insertSeq.items.length - 1; j >= 0; j--) {
-            const sub = insertSeq.items[j];
-            const subId = typeof sub?.get === 'function' ? sub.get('id') : sub?.id;
-            if (typeof subId === 'string' && subId.startsWith('mcp-')) {
+            if (isManagerOwnedMcpRow(insertSeq.items[j])) {
               insertSeq.items.splice(j, 1);
             }
           }

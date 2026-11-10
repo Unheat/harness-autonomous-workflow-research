@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { GLOBAL_ZCODE_CONFIG } from './config';
+import { GLOBAL_ZCODE_CONFIG, CLAUDE_MANAGED_MCP_CONFIG } from './config';
 import { ensureWorkspaceDirs, ADAPTER_SYMLINKS, reconcileWorkspaceAdapters, GENERATED_PROJECTION_FILES } from './workspace';
 import { ensureSkillInvocable } from './catalog';
 import { listGlobalActiveSkills } from './skills-global';
@@ -18,6 +18,22 @@ export { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps };
 
 export { ADAPTER_SYMLINKS } from './workspace';
 export type { AdapterSymlinkDef } from './workspace';
+
+/**
+ * Detects Claude Code's administrator MCP policy, which silently disables the hub there.
+ *
+ * @param managedMcpPath Path of `managed-mcp.json` (injectable for tests).
+ * @returns A warning when the policy file exists, otherwise null.
+ */
+export function checkClaudeManagedMcpPolicy(
+  managedMcpPath: string = CLAUDE_MANAGED_MCP_CONFIG
+): string | null {
+  if (!fs.existsSync(managedMcpPath)) return null;
+  return (
+    `Claude Code is under an administrator MCP policy (${managedMcpPath}). It ignores user, project and ` +
+    '`--mcp-config` servers, so .mcp.json and the workspace hub have no effect in that harness.'
+  );
+}
 
 /**
  * Audits workspace configuration across all harnesses.
@@ -161,7 +177,11 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     }
   }
 
-  // 7. Audit subagent token shields
+  // 7. Audit administrator-level harness policy that silently disables the hub
+  const claudePolicyWarning = checkClaudeManagedMcpPolicy();
+  if (claudePolicyWarning) issues.push({ severity: 'warning', message: claudePolicyWarning });
+
+  // 8. Audit subagent token shields
   const subagentsDir = path.join(root, '.agent', 'agents');
   if (fs.existsSync(subagentsDir)) {
     try {
