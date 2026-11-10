@@ -98,7 +98,11 @@ export async function syncDshProfileMcps(
       seq.items.push(insertNode);
     }
 
-    await fsp.writeFile(patchPath, doc.toString(), 'utf-8');
+    // Only rewrite when the serialized document actually changed, so repeated syncs stay silent
+    // and a reported action always means real drift was repaired.
+    const next = doc.toString();
+    if (next === raw) return false;
+    await fsp.writeFile(patchPath, next, 'utf-8');
     return true;
   } catch {
     return false;
