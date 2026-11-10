@@ -2,8 +2,16 @@ export interface McpServerConfig {
   command: string;
   args?: string[];
   env?: Record<string, string>;
+  cwd?: string;
   description?: string;
   enabled?: boolean;
+  /** Hub-level dormant marker kept for GUI round-trips (see `disabled` semantics in pi). */
+  disabled?: boolean;
+  /** Remote transports; `type` is the MCP-client spelling, `transport` the DSH-era one. */
+  url?: string;
+  headers?: Record<string, string>;
+  type?: 'stdio' | 'http' | 'streamable-http';
+  transport?: 'stdio' | 'streamable-http' | 'sse';
 }
 
 export interface McpCatalog {

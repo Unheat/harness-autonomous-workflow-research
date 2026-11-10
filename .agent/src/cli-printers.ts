@@ -5,6 +5,8 @@ import { getEffectiveSkillsList } from './skills-global';
 import { getEffectiveMcpList } from './mcp-global';
 import { listAllSubagents } from './subagents';
 import { auditWorkspace } from './doctor';
+import { inspectPiProjection } from './services/pi-mcp-projection';
+import { listLocalMcps } from './mcp';
 
 export async function printStatus(workspaceRoot: string): Promise<void> {
   const { name, root } = getWorkspacePaths(workspaceRoot);
@@ -58,6 +60,13 @@ export async function printStatus(workspaceRoot: string): Promise<void> {
   } else {
     console.log(`  ${COLORS.DIM}No MCP servers configured.${COLORS.RESET}`);
   }
+
+  // pi-like harnesses read a generated projection, not the hub, so surface its drift here.
+  const piProjection = inspectPiProjection(root, await listLocalMcps(root));
+  const projectionTag = piProjection.state === 'current'
+    ? colorize('synced', COLORS.GREEN)
+    : colorize(piProjection.state, piProjection.state === 'blocked' ? COLORS.RED : COLORS.YELLOW);
+  console.log(`  ${COLORS.DIM}↳ pi-like projection (.pi/mcp.json): ${piProjection.servers} server(s), ${projectionTag}${COLORS.RESET}`);
 
   const estTokens = (activeSkills.length * TOKENS_PER_SKILL_PREVIEW) + (activeMcpCount * TOKENS_PER_MCP_SCHEMA);
   const blockedSkills = Math.max(0, catalogSkills.length - activeSkills.length);

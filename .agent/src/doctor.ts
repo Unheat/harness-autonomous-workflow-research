@@ -3,12 +3,14 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { GLOBAL_ZCODE_CONFIG } from './config';
-import { ensureWorkspaceDirs, ADAPTER_SYMLINKS, reconcileWorkspaceAdapters } from './workspace';
+import { ensureWorkspaceDirs, ADAPTER_SYMLINKS, reconcileWorkspaceAdapters, GENERATED_PROJECTION_FILES } from './workspace';
 import { ensureSkillInvocable } from './catalog';
 import { listGlobalActiveSkills } from './skills-global';
 import { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps } from './clean-global';
 import { listLocalMcps } from './mcp';
 import { syncDshProfileMcps } from './mcp-dsh';
+import { inspectPiProjection, syncPiProjectMcps } from './services/pi-mcp-projection';
+import { describePiTrustGaps } from './services/pi-harness-trust';
 import type { AuditResult, AuditIssue } from './types';
 
 export { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps };
@@ -113,16 +115,40 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     } catch {}
   }
 
-  // 4. Audit poisonous adapters (.dsh/mcp.json)
-  const dshMcp = path.join(root, '.dsh', 'mcp.json');
-  if (fs.existsSync(dshMcp)) {
+  // 4. Audit poisonous harness projections (.dsh/mcp.json, symlinked .pi/mcp.json)
+  for (const projection of GENERATED_PROJECTION_FILES) {
+    const full = path.join(root, projection.path);
+    const stat = await fsp.lstat(full).catch(() => null);
+    if (!stat) continue;
+    if (projection.keepPhysicalFile && !stat.isSymbolicLink()) continue;
     issues.push({
       severity: 'error',
-      message: 'Found poisonous adapter .dsh/mcp.json! Causes DSH toolbox to double-mount raw MCP tools. Run `harness heal` to prune.'
+      message: `Found poisonous adapter ${projection.path}! ${projection.reason}. Run \`harness heal\` to prune.`
     });
   }
 
-  // 5. Audit subagent token shields
+  // 5. Audit the pi-like harness projection against the hub declarations
+  const localMcps = await listLocalMcps(root);
+  const piProjection = inspectPiProjection(root, localMcps);
+  if (piProjection.state === 'missing' || piProjection.state === 'stale') {
+    issues.push({
+      severity: 'warning',
+      message: `pi-like projection ${piProjection.path} is ${piProjection.state} (${piProjection.servers} server(s) expected). Run \`harness heal\` to regenerate.`
+    });
+  }
+  for (const issue of piProjection.issues) {
+    issues.push({
+      severity: 'warning',
+      message: `pi-like harness would reject MCP server "${issue.server}": ${issue.reason}.`
+    });
+  }
+  if (piProjection.servers > 0 && piProjection.state !== 'blocked') {
+    for (const warning of describePiTrustGaps(root)) {
+      issues.push({ severity: 'warning', message: warning });
+    }
+  }
+
+  // 6. Audit subagent token shields
   const subagentsDir = path.join(root, '.agent', 'agents');
   if (fs.existsSync(subagentsDir)) {
     try {
@@ -160,10 +186,13 @@ export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
     actions.push(...await reconcileWorkspaceAdapters(root));
   } else {
     actions.push('Global user scope: project adapter repair skipped; native harness folders preserved.');
-    const dshMcp = path.join(root, '.dsh', 'mcp.json');
-    if (await fsp.lstat(dshMcp).catch(() => null)) {
-      await fsp.unlink(dshMcp);
-      actions.push('Pruned poisonous .dsh/mcp.json adapter (prevents raw MCP double-mount in DSH)');
+    for (const projection of GENERATED_PROJECTION_FILES) {
+      const full = path.join(root, projection.path);
+      const stat = await fsp.lstat(full).catch(() => null);
+      if (!stat) continue;
+      if (projection.keepPhysicalFile && !stat.isSymbolicLink()) continue;
+      await fsp.unlink(full);
+      actions.push(`Pruned poisonous ${projection.path} adapter (${projection.reason})`);
     }
   }
 
@@ -197,6 +226,17 @@ export async function healWorkspace(workspaceRoot: string): Promise<string[]> {
   // Sync workspace MCP servers into DeepSeek Harness profile
   const localMcps = await listLocalMcps(root);
   await syncDshProfileMcps(localMcps).catch(() => {});
+
+  // Regenerate the pi-like harness projection (.pi/mcp.json) from the hub
+  if (localMcps && Object.keys(localMcps).length > 0) {
+    const projection = await syncPiProjectMcps(root, localMcps).catch(() => null);
+    if (projection && projection.servers > 0) {
+      actions.push(`Regenerated ${projection.path} for pi-like harnesses (${projection.servers} server(s))`);
+    }
+    for (const issue of projection?.issues ?? []) {
+      actions.push(`Skipped pi-incompatible MCP server "${issue.server}": ${issue.reason}`);
+    }
+  }
 
   return actions;
 }

@@ -11,6 +11,24 @@ export const GLOBAL_MCPS_FILE = path.join(GLOBAL_CATALOG_DIR, 'mcps.json');
 export const GLOBAL_ZCODE_CONFIG = path.join(HOME_DIR, '.zcode', 'cli', 'config.json');
 export const GLOBAL_CLAUDE_CONFIG = path.join(HOME_DIR, '.claude', 'settings.json');
 
+/** Project-scope config directory read by pi and every pi-derived harness. */
+export const PI_PROJECT_CONFIG_DIR = '.pi';
+
+/** Project-scope MCP file basename inside {@link PI_PROJECT_CONFIG_DIR}. */
+export const PI_PROJECT_MCP_BASENAME = 'mcp.json';
+
+/** Agent-directory basename holding per-harness trust decisions. */
+export const PI_TRUST_BASENAME = 'trust.json';
+
+/** Environment variable with which pi-derived harnesses relocate their agent directory. */
+export const PI_AGENT_DIR_ENV = 'PI_CODING_AGENT_DIR';
+
+/** Opt-in registry (`path.delimiter`-separated) for additional relocated agent directories. */
+export const PI_LIKE_AGENT_DIRS_ENV = 'PI_LIKE_AGENT_DIRS';
+
+/** Agent directory used by a stock pi install when nothing relocates it. */
+export const PI_DEFAULT_AGENT_SUBPATH = [PI_PROJECT_CONFIG_DIR, 'agent'] as const;
+
 export const TOKENS_PER_SKILL_PREVIEW = 350;
 export const TOKENS_PER_MCP_SCHEMA = 300;
 

@@ -65,6 +65,27 @@ When 30+ global skills exist on a machine, default subagents (`general-purpose`)
 
 ---
 
+## 3.1 Hub Adapters: Symlinks vs. Generated Projections
+
+Harnesses fall into two classes, and mixing them up is the most common cross-harness bug:
+
+| Class | Harnesses | Mechanism | Why |
+|---|---|---|---|
+| **Hub reader** | Claude Code, Cursor, ZCode, Codex, OpenCode | Symlink `.cursor/mcp.json → ../.mcp.json` etc. | They read the shared `mcpServers` dialect verbatim. |
+| **Projection consumer** | DeepSeek Harness (`.dsh/`), pi and every pi-like host (`<workspace>/.pi/mcp.json`) | Generated artifact written from the hub on every change | The dialect differs and the harness rewrites its own file; a symlink would feed the hub the harness dialect and let harness writes mutate the hub. |
+
+Rules:
+
+- The hub `.mcp.json` stays the single source of truth; projections are derived, never hand-maintained.
+- Projections are written atomically and only when content changes, so drift is detectable and repair is safe.
+- `harness doctor` reports drift, refused declarations and harness trust gaps; `harness heal` regenerates.
+- A symlinked projection is poisonous: prune it, never write through it.
+- Harness trust is never granted by the manager — it belongs to the harness approval flow.
+
+Detailed pi trust semantics: [`docs/solutions/pi-like-harness-projection.md`](solutions/pi-like-harness-projection.md).
+
+---
+
 ## 4. Multi-Layer Workflow Integration
 
 1. **Spec Layer (GitHub Spec Kit):**

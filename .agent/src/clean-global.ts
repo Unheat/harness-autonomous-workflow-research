@@ -5,6 +5,7 @@ import os from 'node:os';
 
 import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_ZCODE_CONFIG, GLOBAL_CATALOG_DIR, GLOBAL_MCPS_FILE } from './config';
 import { syncSkillToCatalog, getCatalogMcps } from './catalog';
+import { listExistingPiAgentDirs } from './services/pi-harness-trust';
 import type { CleanGlobalResult } from './types';
 
 export interface CleanGlobalOptions {
@@ -35,6 +36,7 @@ export interface UnmigratedHarnessMcp {
  * - ~/.cursor/mcp.json (mcpServers)
  * - ~/.codex/config.toml (mcp_servers)
  * - ~/.config/opencode/opencode.json (mcpServers)
+ * - <agentDir>/mcp.json for every pi-like harness (stock ~/.pi/agent plus registered relocations)
  */
 export async function discoverUnmigratedHarnessMcps(): Promise<UnmigratedHarnessMcp[]> {
   const home = os.homedir();
@@ -120,6 +122,21 @@ export async function discoverUnmigratedHarnessMcps(): Promise<UnmigratedHarness
         }
       } catch {}
     }
+  }
+
+  // 6. pi-like harnesses: <agentDir>/mcp.json. Stock pi lives at ~/.pi/agent; hosts that embed
+  // pi relocate their agent directory, so the registry is consulted instead of a vendor path.
+  for (const agentDir of listExistingPiAgentDirs()) {
+    const piMcp = path.join(agentDir, 'mcp.json');
+    if (!fs.existsSync(piMcp)) continue;
+    try {
+      const raw = await fsp.readFile(piMcp, 'utf-8');
+      const cfg = JSON.parse(raw);
+      const servers = filterExternal(cfg?.mcpServers || {});
+      if (Object.keys(servers).length > 0) {
+        results.push({ harness: `pi-like (${agentDir})`, filePath: piMcp, servers });
+      }
+    } catch {}
   }
 
   return results;

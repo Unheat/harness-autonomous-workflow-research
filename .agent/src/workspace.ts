@@ -3,11 +3,31 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import type { WorkspacePaths, InitWorkspaceResult } from './types';
+import { syncPiProjectMcps } from './services/pi-mcp-projection';
 
 export interface AdapterSymlinkDef {
   link: string;
   target: string;
 }
+
+/**
+ * Harness files that must stay generated projections, never symlinks into the hub.
+ * A symlink would feed the hub dialect to that harness and let harness-side writes
+ * mutate `.mcp.json` through the link.
+ */
+export interface GeneratedProjectionDef {
+  /** Workspace-relative path of the harness projection. */
+  path: string;
+  /** Whether a physical file is legitimate (generated) or always poisonous. */
+  keepPhysicalFile: boolean;
+  /** Why a symlink at this path is poisonous, quoted in doctor/heal output. */
+  reason: string;
+}
+
+export const GENERATED_PROJECTION_FILES: GeneratedProjectionDef[] = [
+  { path: '.dsh/mcp.json', keepPhysicalFile: false, reason: 'DSH toolbox double-mounts raw MCP tools' },
+  { path: '.pi/mcp.json', keepPhysicalFile: true, reason: 'pi reads a generated projection, not the hub' }
+];
 
 // ZCode reads .agents/skills natively: a second skills adapter duplicates prompts.
 export const ADAPTER_SYMLINKS: AdapterSymlinkDef[] = [
@@ -63,15 +83,18 @@ export async function reconcileWorkspaceAdapters(root: string): Promise<string[]
     actions.push('Pruned redundant .zcode/skills adapter (native .agents/skills discovery)');
   }
 
-  // Active safety guard: prune .dsh/mcp.json if present to prevent DSH toolbox from double-mounting raw MCP tools
-  const dshMcp = path.join(root, '.dsh', 'mcp.json');
-  const dshMcpStat = await fsp.lstat(dshMcp).catch((err: NodeJS.ErrnoException) => {
-    if (err.code === 'ENOENT') return null;
-    throw err;
-  });
-  if (dshMcpStat) {
-    await fsp.unlink(dshMcp);
-    actions.push('Pruned poisonous .dsh/mcp.json adapter (prevents raw MCP double-mount in DSH)');
+  // Active safety guard: prune symlinked harness projections that would double-mount or
+  // re-enter the hub. Generated physical projections keep working; only links are poisonous.
+  for (const projection of GENERATED_PROJECTION_FILES) {
+    const full = path.join(root, projection.path);
+    const stat = await fsp.lstat(full).catch((err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') return null;
+      throw err;
+    });
+    if (!stat) continue;
+    if (projection.keepPhysicalFile && !stat.isSymbolicLink()) continue;
+    await fsp.unlink(full);
+    actions.push(`Pruned poisonous ${projection.path} adapter (${projection.reason})`);
   }
 
   return actions;
@@ -173,6 +196,7 @@ export async function initWorkspace(targetDir: string = process.cwd()): Promise<
   }
 
   await reconcileWorkspaceAdapters(root);
+  await syncPiProjectMcps(root, {});
 
   return { success: true, message: `Initialized workspace "${paths.name}"`, root, name: paths.name };
 }

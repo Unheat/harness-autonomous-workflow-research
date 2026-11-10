@@ -4,6 +4,7 @@ import { getWorkspacePaths, ensureWorkspaceDirs } from './workspace';
 import { getCatalogMcps } from './catalog';
 import { GLOBAL_CATALOG_DIR, GLOBAL_MCPS_FILE } from './config';
 import { syncDshProfileMcps } from './mcp-dsh';
+import { syncPiProjectMcps } from './services/pi-mcp-projection';
 import type { McpServerConfig, OperationResult } from './types';
 
 function isValidName(name: string): boolean {
@@ -45,6 +46,8 @@ export async function listLocalMcps(workspaceRoot: string): Promise<Record<strin
 
 /**
  * Persists servers to local .mcp.json and .agents/mcp.json in lockstep.
+ * Also projects them into every harness whose dialect differs from the hub
+ * (DeepSeek Harness profile, pi-like `.pi/mcp.json`).
  */
 export async function saveLocalMcps(
   workspaceRoot: string,
@@ -62,6 +65,9 @@ export async function saveLocalMcps(
 
   // Synchronize enabled MCP servers into DeepSeek Harness desktop profile
   await syncDshProfileMcps(mcpServers).catch(() => {});
+
+  // Regenerate the pi-like harness projection (.pi/mcp.json) from the same source of truth
+  await syncPiProjectMcps(workspaceRoot, mcpServers).catch(() => {});
 }
 
 /**
