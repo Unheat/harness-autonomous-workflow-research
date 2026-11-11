@@ -78,6 +78,13 @@ Hindsight's installer owns its artifacts; the manager must never migrate or prun
 
 Detection is by marker, not by server name: a user's own server called `hindsight` is still managed normally.
 
+**Where the shared hub entry went.** With every installed harness wired natively, the `.mcp.json` entry for
+`hindsight` became a second connection (transcript hook *plus* MCP server) for the same host, and its single
+`HINDSIGHT_MCP_HARNESS` value could only ever name one harness. It was removed from the workspace hub
+(`harness mcp rm hindsight`) and its env marker was dropped from `~/.agents/catalog/mcps.json`, so the catalog
+definition survives as a label-free **fallback** for hosts with no native wiring. Per-harness labels now come from
+the installer's own entries (`cursor-cli`, `codex`, …), which are correct by construction.
+
 ---
 
 ## 5. Configuration surfaces
