@@ -4,6 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import yaml from 'yaml';
 import type { McpServerConfig } from './types';
+import { isHostManagedMcpEntry } from './services/host-managed';
 
 export const DSH_DESKTOP_PATCH = path.join(os.homedir(), '.dsh', 'profiles', 'desktop', 'cordis.patch.yml');
 
@@ -105,6 +106,9 @@ export async function syncDshProfileMcps(
     const mcpEntries: any[] = [];
     for (const [name, cfg] of Object.entries(localServers || {})) {
       if (cfg.enabled === false || (cfg as any).disabled === true) continue;
+      // Another harness's installer already wired its own tool channel; projecting it here would
+      // mount the same server twice and sign its documents with the wrong caller.
+      if (isHostManagedMcpEntry(cfg)) continue;
       mcpEntries.push(buildDshMcpEntry(name, cfg));
     }
 

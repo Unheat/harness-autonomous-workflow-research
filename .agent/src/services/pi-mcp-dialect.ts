@@ -1,4 +1,5 @@
 import type { McpServerConfig } from '../types';
+import { isHostManagedMcpEntry } from './host-managed';
 
 /**
  * pi MCP dialect translation.
@@ -128,6 +129,9 @@ export function buildPiProjection(localServers: Record<string, McpServerConfig>)
   const namespaces = new Map<string, string>();
 
   for (const [name, config] of Object.entries(localServers ?? {})) {
+    // An entry marked for another harness is that harness's tool channel; projecting it here would
+    // duplicate the connection and sign the documents with the wrong caller.
+    if (isHostManagedMcpEntry(config)) continue;
     const built = buildPiMcpEntry(name, config);
     if (!built.ok) {
       issues.push({ server: name, reason: built.reason });

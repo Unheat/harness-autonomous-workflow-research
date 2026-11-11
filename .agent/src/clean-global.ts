@@ -7,6 +7,9 @@ import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_ZCODE_CONFIG, GLOB
 import { syncSkillToCatalog, getCatalogMcps } from './catalog';
 import { listExistingPiAgentDirs } from './services/pi-harness-trust';
 import { listGlobalMcps } from './mcp-global';
+import { isHostManagedMcpEntry } from './services/host-managed';
+
+export { HOST_MANAGED_MCP_ENV_MARKERS, isHostManagedMcpEntry } from './services/host-managed';
 import type { CleanGlobalResult } from './types';
 
 export interface CleanGlobalOptions {
@@ -23,28 +26,6 @@ export const DEFAULT_GLOBAL_SKILLS_WHITELIST = ['harness-protocol', 'agent-reach
  * Examples: Codex's internal node_repl bridge or native computer-use runtime.
  */
 export const HARNESS_INTERNAL_SERVERS = new Set(['node_repl', 'computer-use']);
-
-/**
- * Environment keys a harness installer writes into the MCP entries it owns.
- *
- * An entry that declares which harness is calling it is host-managed wiring, not a declaration the
- * user made: migrating or deleting it would break that agent's memory setup. Detection is by marker,
- * not by server name, so a user's own server called "hindsight" is still managed normally.
- */
-export const HOST_MANAGED_MCP_ENV_MARKERS = ['HINDSIGHT_MCP_HARNESS'] as const;
-
-/**
- * Reports whether a server entry was installed by a harness host rather than declared by the user.
- *
- * @param config Parsed server config from any harness file.
- * @returns True when the entry carries a host-managed environment marker.
- */
-export function isHostManagedMcpEntry(config: unknown): boolean {
-  if (!config || typeof config !== 'object') return false;
-  const env = (config as Record<string, unknown>).env;
-  if (!env || typeof env !== 'object') return false;
-  return HOST_MANAGED_MCP_ENV_MARKERS.some(marker => marker in (env as Record<string, unknown>));
-}
 
 export interface UnmigratedHarnessMcp {
   harness: string;

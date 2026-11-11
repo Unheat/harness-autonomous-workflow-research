@@ -40,5 +40,24 @@ or the + optional a helper finetuned toward repo content small llm to help with 
   - superagent by deepseek https://github.com/deepseek-ai/dsh-superagent-prototype
   - paperclip https://github.com/paperclipai/paperclip
   - storytold architect
+  - OpenMausBot https://github.com/milind-soni/OpenMausBot
+    - not an orchestrator engine: it is a **local-first control plane / front-of-house** for a roster of
+      coding agents (Claude/Codex/Grok CLI under drivers), one bot = one agent with its own model,
+      working folder, skills and memory.
+    - the parts worth borrowing for our coordinator:
+      - *channels* -> per-project context (transcript + instructions + working folder + bot roster) = a
+        natural mapping onto our workspace/worktree lane, without cloning agents.
+      - *MCP control plane that is deliberately bounded* — expose inspect/read/send/wait/interrupt but never
+        approval grants, credentials or lifecycle. Matches our judge/approval-is-human-only rule.
+      - *headless CLI contract* (`openmausbot team apply`, `openmausbot run ... --json`, exit codes) — the
+        shape our L0 coordinator needs so a queue/webhook can drive it from scripts and CI.
+      - *triggers* (schedule / webhook / app-event) with queue-on-overlap semantics (skip a tick if the
+        previous run is still active) — a cheap answer to our "no unbounded autonomous queue" gap.
+      - *team-as-Markdown with YAML frontmatter* (portable playbook, connections off, routines paused,
+        never carries secrets/chats/permissions) — a good model if we ever want to ship our roster of
+        subagents (`swe-workflow` + `judge-plan` + `judge-pr` + explore/research) as one importable unit.
+    - what it does NOT give us: dependency/topological ordering across lanes, merge-order reasoning, or
+      any notion of a worktree graph — those stay with our L0 design (storytold pattern) and stay
+      unproven until we have the backtest eval.
 
 

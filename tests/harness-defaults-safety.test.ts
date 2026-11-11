@@ -186,3 +186,41 @@ describe('installer-owned MCP wiring is not treated as a user declaration', () =
     expect(cursor!.servers['my-own-server']).toBeDefined();
   });
 });
+
+describe('host-managed entries are never projected into another harness', () => {
+  test('buildPiProjection skips installer-owned entries but keeps user declarations', async () => {
+    const { buildPiProjection } = await import('../.agent/src/services/pi-mcp-dialect');
+    const { payload } = buildPiProjection({
+      hindsight: {
+        command: 'node',
+        args: ['/x/mcp-server.js'],
+        env: { HINDSIGHT_MCP_HARNESS: 'zcode' }
+      },
+      'my-notes': { command: '/bin/notes' }
+    });
+
+    expect(Object.keys(payload.mcpServers)).toEqual(['my-notes']);
+  });
+});
+
+describe('DSH projection honours host-managed ownership too', () => {
+  test('syncDshProfileMcps skips entries another harness installer owns', async () => {
+    const dir = await makeTmp('dsh-host-managed-');
+    const patch = path.join(dir, 'cordis.patch.yml');
+    await fsp.writeFile(patch, '- id: keep-me\n  name: "@deepseek-ai/dsh-tools"\n', 'utf-8');
+
+    await syncDshProfileMcps(
+      {
+        hindsight: { command: 'node', args: ['/x/mcp-server.js'], env: { HINDSIGHT_MCP_HARNESS: 'zcode' } },
+        'my-notes': { command: '/bin/notes' }
+      },
+      patch
+    );
+
+    const ids: string[] = yaml.parse(await fsp.readFile(patch, 'utf-8'))
+      .flatMap((entry: any) => entry.insert ?? [entry])
+      .map((entry: any) => entry.id);
+    expect(ids).toContain('mcp-my-notes');
+    expect(ids).not.toContain('mcp-hindsight');
+  });
+});
