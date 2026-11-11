@@ -155,3 +155,34 @@ trust_level = "trusted"
     expect(warning).toContain('have no effect');
   });
 });
+
+describe('installer-owned MCP wiring is not treated as a user declaration', () => {
+  test('entries carrying a host-managed env marker are skipped, plain ones are not', async () => {
+    const ws = await makeTmp('host-managed-ws-');
+    const home = os.homedir();
+    const cursorDir = path.join(home, '.cursor');
+    await fsp.mkdir(cursorDir, { recursive: true });
+    await fsp.writeFile(
+      path.join(cursorDir, 'mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          hindsight: {
+            command: 'node',
+            args: ['/Users/x/.hindsight/coding-agents/dist/mcp-server.js'],
+            env: { HINDSIGHT_MCP_HARNESS: 'cursor-cli' }
+          },
+          'my-own-server': { command: '/bin/mine' }
+        }
+      }),
+      'utf-8'
+    );
+
+    const { discoverUnmigratedHarnessMcps } = await import('../.agent/src/clean-global');
+    const found = await discoverUnmigratedHarnessMcps();
+    const cursor = found.find(entry => entry.filePath === path.join(cursorDir, 'mcp.json'));
+
+    expect(cursor).toBeDefined();
+    expect(cursor!.servers.hindsight).toBeUndefined();
+    expect(cursor!.servers['my-own-server']).toBeDefined();
+  });
+});
