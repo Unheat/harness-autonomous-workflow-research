@@ -188,6 +188,7 @@ export function printHelp(): void {
   console.log(`  ${COLORS.BOLD}agent delete <name>${COLORS.RESET}    Permanently delete a subagent file`);
   console.log(`  ${COLORS.BOLD}config read/edit <tgt>${COLORS.RESET} Inspect/edit JSON/MD configs (workspace-mcp, zcode-global, claude-settings, subagent)`);
   console.log(`  ${COLORS.BOLD}doctor / heal${COLORS.RESET}          Audit and auto-repair cross-harness symlinks`);
+  console.log(`  ${COLORS.BOLD}trust [dir]${COLORS.RESET}            Grant this project in every harness that has a trust gate (--list to inspect)`);
   console.log(`  ${COLORS.BOLD}clean-global${COLORS.RESET}           Sweep global skills/MCPs to stop global token bloat`);
   console.log(`  ${COLORS.BOLD}ui${COLORS.RESET}                     Open local Vibe Coder Web Dashboard`);
   console.log(`  ${COLORS.BOLD}help / exit${COLORS.RESET}            Show menu / Exit shell\n`);

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { colorize, COLORS } from '../src/config';
@@ -10,6 +11,7 @@ import { syncHarnessProjections } from '../src/services/harness-sync-service';
 import { toggleSubagentTokenShield, deleteSubagentFile, findSubagentPath } from '../src/services/subagent-service';
 import { readConfigFile, resolveConfigPath, type ConfigTarget } from '../src/services/config-service';
 import { healWorkspace, cleanGlobal } from '../src/doctor';
+import { trustProject, listTrust, type TrustActionResult } from '../src/services/harness-trust';
 import { printStatus, printCatalog, runDoctor, printHelp, printSubagents } from '../src/cli-printers';
 
 export function launchUi(workspaceRoot: string): void {
@@ -50,6 +52,8 @@ export async function executeCliCommand(cmd: string, args: string[], workspaceRo
     const actions = await healWorkspace(root);
     actions.forEach(a => console.log(colorize(`• ${a}`, COLORS.GREEN)));
     console.log(colorize('✅ Workspace healed and reconciled across all harnesses.', COLORS.GREEN));
+  } else if (c === 'trust') {
+    await handleTrustCommand(args, root);
   } else if (['clean-global', 'cleanglobal'].includes(c)) {
     const res = await cleanGlobal({
       skills: args.includes('--skills') || args.includes('skills'),
@@ -64,6 +68,40 @@ export async function executeCliCommand(cmd: string, args: string[], workspaceRo
   }
 
   return true;
+}
+
+async function handleTrustCommand(args: string[], root: string): Promise<void> {
+  const list = args.includes('--list') || args[0] === 'list';
+  if (list) {
+    const results = await listTrust(root);
+    console.log(`\n${COLORS.BOLD}Project trust for ${root}${COLORS.RESET}`);
+    printTrustResults(results);
+    return;
+  }
+  const target = args[0] ? path.resolve(root, args[0]) : root;
+  if (!fs.existsSync(target)) {
+    console.log(colorize(`❌ No such folder: ${target}`, COLORS.RED));
+    return;
+  }
+  const results = await trustProject(target);
+  console.log(`\n${COLORS.BOLD}Trust requested for ${target}${COLORS.RESET}`);
+  printTrustResults(results);
+  console.log(colorize('\nRestart each harness (a new session/thread) so it reloads its trust decision.', COLORS.DIM));
+}
+
+function printTrustResults(results: TrustActionResult[]): void {
+  const icon: Record<TrustActionResult['status'], string> = {
+    trusted: colorize('✅ trusted', COLORS.GREEN),
+    already: colorize('✅ already trusted', COLORS.GREEN),
+    untrusted: colorize('❌ not trusted', COLORS.YELLOW),
+    unsupported: colorize('ℹ️  no project-trust gate', COLORS.DIM),
+    failed: colorize('❌ failed', COLORS.RED)
+  };
+  for (const result of results) {
+    console.log(`  ${icon[result.status]}  ${COLORS.BOLD}${result.harness.padEnd(18)}${COLORS.RESET} ${COLORS.DIM}${result.detail}${COLORS.RESET}`);
+  }
+  const failed = results.some(result => result.status === 'failed');
+  if (failed) console.log(colorize('\n⚠️  Some harness configs failed; inspect the messages above.', COLORS.YELLOW));
 }
 
 async function handleSkillCommand(args: string[], root: string): Promise<void> {
