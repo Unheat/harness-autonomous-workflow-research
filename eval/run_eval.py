@@ -54,7 +54,7 @@ You must read the evidence objectively, apply the rubric checks strictly, and re
 ----------------------------------------------------------------------
 # Execution Instruction
 Grade this package in EVALUATION MODE.
-The bundle text above is your ONLY evidence. Do not guess, do not hallucinate, and do not be lenient.
+The bundle text above is your ONLY evidence. Do not guess and do not hallucinate.
 Execute the procedure as written, grade every required check in the rubric, apply the rubric's verdict rule,
 and end your response with a fenced JSON block in this exact schema:
 
@@ -62,7 +62,7 @@ and end your response with a fenced JSON block in this exact schema:
 {{
   "item": "{item_id}",
   "checks": [
-    {{"name": "<check-name>", "grade": "pass|fail", "evidence": "<one-line fact or quote>"}}
+    {{"name": "<check-name>", "grade": "pass|fail|unclear", "evidence": "<one-line fact or quote>"}}
   ],
   "verdict": "accept|reject",
   "feedback": "<brief actionable critique if reject, or empty if accept>"

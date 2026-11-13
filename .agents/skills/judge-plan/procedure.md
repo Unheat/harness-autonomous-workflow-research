@@ -8,7 +8,7 @@
 3. Apply every check in `rubric.md`. Cite deciding facts or missing evidence.
    Do not invent criteria, require verbosity or assume an unstated contribution policy.
 4. Return the following fenced JSON last. Include every rubric check exactly once,
-   in order; grades are pass/fail/unclear. Accept iff all checks pass.
+   in order; grades are pass/fail/unclear. Accept iff no check fails.
 
 ```json
 {
@@ -19,5 +19,6 @@
 }
 ```
 
-Never fabricate a file/line or execution result. A review-budget limit with missing
-required evidence holds acceptance; report what remains to inspect.
+Never fabricate a file/line or execution result. Grading a check `unclear` is an
+abstention, not a failure: reserve `fail` for evidence that contradicts the rubric, and
+name what remains unverified so the author can supply it.

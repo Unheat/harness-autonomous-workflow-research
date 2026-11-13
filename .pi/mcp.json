@@ -1,0 +1,43 @@
+{
+  "mcpServers": {
+    "codebase-memory": {
+      "command": "/Users/dangtruongan/.local/bin/codebase-memory-mcp",
+      "args": [],
+      "exposure": "direct"
+    },
+    "hound": {
+      "command": "/opt/anaconda3/bin/hound",
+      "args": [],
+      "exposure": "direct",
+      "enabled": false
+    },
+    "gitmcp": {
+      "command": "/Users/dangtruongan/.local/bin/gitmcp",
+      "args": [],
+      "exposure": "direct"
+    },
+    "rea": {
+      "command": "/Users/dangtruongan/.nvm/versions/node/v22.23.4/bin/rea",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "REA_MCP_INPUT_SCHEMA_PROFILE": "compact",
+        "REA_MCP_OUTPUT_SCHEMA_PROFILE": "off"
+      },
+      "exposure": "direct",
+      "enabled": false
+    },
+    "search2ai": {
+      "command": "/Users/dangtruongan/.local/bin/search2ai-mcp",
+      "args": [],
+      "exposure": "direct"
+    },
+    "local-pdf-rag": {
+      "command": "/Users/dangtruongan/.local/share/local-pdf-rag-mcp/.venv/bin/local-pdf-rag-mcp",
+      "args": [],
+      "exposure": "direct",
+      "enabled": false
+    }
+  }
+}
