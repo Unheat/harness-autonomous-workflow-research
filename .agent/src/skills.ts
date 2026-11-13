@@ -36,10 +36,15 @@ export async function listLocalSkills(workspaceRoot: string): Promise<LocalSkill
     } catch {}
   }
 
+  // An active entry is the only truth for a name: a leftover dormant copy with the same name
+  // must never shadow it, otherwise the manager reports a loaded skill as dormant.
+  const activeNames = new Set(skills.map(s => s.name));
+
   if (fs.existsSync(dormantSkillsDir)) {
     try {
       const dormantEntries = await fsp.readdir(dormantSkillsDir, { withFileTypes: true });
       for (const entry of dormantEntries) {
+        if (activeNames.has(entry.name)) continue;
         const fullPath = path.join(dormantSkillsDir, entry.name);
         if (fs.existsSync(path.join(fullPath, 'SKILL.md'))) {
           skills.push({ name: entry.name, isLink: false, isDormant: true });
@@ -49,6 +54,17 @@ export async function listLocalSkills(workspaceRoot: string): Promise<LocalSkill
   }
 
   return skills.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Removes a dormant copy that duplicates an active skill name.
+ * Returns true when something was actually removed.
+ */
+async function discardDormantTwin(dormantTarget: string): Promise<boolean> {
+  const stat = await fsp.lstat(dormantTarget).catch(() => null);
+  if (!stat) return false;
+  await fsp.rm(dormantTarget, { recursive: true, force: true });
+  return true;
 }
 
 /**
@@ -72,7 +88,13 @@ export async function addSkill(workspaceRoot: string, rawSkillName: string): Pro
 
   const localStat = await fsp.lstat(localTarget).catch(() => null);
   if (localStat) {
-    return { success: false, message: `Skill "${skillName}" is already active in this workspace.` };
+    const staleDormant = await discardDormantTwin(dormantTarget);
+    return {
+      success: true,
+      message: staleDormant
+        ? `Skill "${skillName}" is already active in this workspace (removed stale dormant copy).`
+        : `Skill "${skillName}" is already active in this workspace.`
+    };
   }
 
   if (fs.existsSync(dormantTarget)) {
@@ -148,8 +170,16 @@ export async function removeSkill(
 
   try {
     await fsp.mkdir(dormantSkillsDir, { recursive: true });
+    // rename() cannot replace a populated directory, and the active copy is newer than any
+    // leftover dormant twin, so the twin is discarded instead of blocking the disable.
+    const replacedStale = await discardDormantTwin(dormantTarget);
     await fsp.rename(localTarget, dormantTarget);
-    return { success: true, message: `Disabled local skill "${skillName}" (moved to dormant, 0 tokens injected).` };
+    return {
+      success: true,
+      message: replacedStale
+        ? `Disabled local skill "${skillName}" (moved to dormant, replaced stale dormant copy, 0 tokens injected).`
+        : `Disabled local skill "${skillName}" (moved to dormant, 0 tokens injected).`
+    };
   } catch (err: any) {
     return { success: false, message: `Failed to move skill to dormant: ${err.message}` };
   }

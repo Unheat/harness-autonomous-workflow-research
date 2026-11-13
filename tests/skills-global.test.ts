@@ -59,4 +59,24 @@ describe('Skills Global & Scope Engine', () => {
       await fsp.rm(tmpWs, { recursive: true, force: true });
     }
   });
+
+  test('getEffectiveSkillsList: a stale dormant copy never shadows an active skill', async () => {
+    const tmpWs = await fsp.mkdtemp(path.join(os.tmpdir(), 'harness-test-skills-shadow-'));
+
+    try {
+      await createLocalSkill(tmpWs, 'shadowed-skill', 'Active copy');
+      const dormantDir = path.join(tmpWs, '.agents', 'dormant', 'shadowed-skill');
+      await fsp.mkdir(dormantDir, { recursive: true });
+      await fsp.writeFile(path.join(dormantDir, 'SKILL.md'), '---\nname: shadowed-skill\n---\nStale copy\n');
+
+      const list = await getEffectiveSkillsList(tmpWs);
+      const entries = list.filter(s => s.name === 'shadowed-skill');
+      expect(entries.length).toBe(1);
+      expect(entries[0].isDormant).toBe(false);
+      expect(entries[0].isProjectActive).toBe(true);
+      expect(entries[0].effectiveActive).toBe(true);
+    } finally {
+      await fsp.rm(tmpWs, { recursive: true, force: true });
+    }
+  });
 });

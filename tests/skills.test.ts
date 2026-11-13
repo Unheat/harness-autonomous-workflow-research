@@ -43,9 +43,11 @@ describe('skills module', () => {
       expect(list1[0].name).toBe(mockSkillName);
       expect(list1[0].isLink).toBe(true);
 
-      // 3. Adding again should fail gracefully (idempotency)
+      // 3. Adding again is a no-op success: the requested end state (active) already holds
       const addDup = await addSkill(tmpWs, mockSkillName);
-      expect(addDup.success).toBe(false);
+      expect(addDup.success).toBe(true);
+      expect(addDup.message).toContain('already active');
+      expect((await listLocalSkills(tmpWs)).length).toBe(1);
 
       // 4. Remove skill
       const remRes = await removeSkill(tmpWs, mockSkillName);
@@ -91,6 +93,43 @@ describe('skills module', () => {
 
       const listActive = await listLocalSkills(tmpWs);
       expect(listActive[0].isDormant).toBe(false);
+    } finally {
+      await fsp.rm(tmpWs, { recursive: true, force: true });
+    }
+  });
+
+  test('duplicate active + dormant copy: active wins and both toggles work', async () => {
+    const tmpWs = await fsp.mkdtemp(path.join(os.tmpdir(), 'harness-test-skills-dup-'));
+
+    try {
+      // Reproduce the broken state: same name active in .agents/skills/ and left in .agents/dormant/
+      await createLocalSkill(tmpWs, 'dup-skill', 'Active copy');
+      const dormantDir = path.join(tmpWs, '.agents', 'dormant', 'dup-skill');
+      await fsp.mkdir(dormantDir, { recursive: true });
+      await fsp.writeFile(path.join(dormantDir, 'SKILL.md'), '---\nname: dup-skill\n---\nStale copy\n');
+
+      // Listing must report exactly one entry, and it must be the active one
+      const list = await listLocalSkills(tmpWs);
+      expect(list.length).toBe(1);
+      expect(list[0].isDormant).toBe(false);
+
+      // Turning it ON must succeed (and heal the stale dormant twin), not error out
+      const on = await addSkill(tmpWs, 'dup-skill');
+      expect(on.success).toBe(true);
+      expect(on.message).toContain('already active');
+      expect(await fsp.stat(dormantDir).then(() => true).catch(() => false)).toBe(false);
+
+      // Recreate the stale twin, then turning it OFF must still succeed
+      await fsp.mkdir(dormantDir, { recursive: true });
+      await fsp.writeFile(path.join(dormantDir, 'SKILL.md'), '---\nname: dup-skill\n---\nStale copy\n');
+      const off = await removeSkill(tmpWs, 'dup-skill');
+      expect(off.success).toBe(true);
+
+      const afterOff = await listLocalSkills(tmpWs);
+      expect(afterOff.length).toBe(1);
+      expect(afterOff[0].isDormant).toBe(true);
+      const content = await fsp.readFile(path.join(dormantDir, 'SKILL.md'), 'utf-8');
+      expect(content).toContain('Active copy');
     } finally {
       await fsp.rm(tmpWs, { recursive: true, force: true });
     }

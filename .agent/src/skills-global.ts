@@ -7,7 +7,7 @@ import { GLOBAL_CATALOG_SKILLS_DIR, GLOBAL_SKILLS_DIR, GLOBAL_ZCODE_CONFIG } fro
 import { listLocalSkills } from './skills';
 import { getCatalogSkills, getSkillDescription, syncSkillToCatalog } from './catalog';
 import { globalSkillRoots, isValidSkillName } from './skill-paths';
-import type { EffectiveSkillInfo, SkillScope, OperationResult } from './types';
+import type { EffectiveSkillInfo, LocalSkillInfo, SkillScope, OperationResult } from './types';
 
 export interface GlobalActiveSkill {
   name: string;
@@ -69,7 +69,15 @@ export async function getEffectiveSkillsList(workspaceRoot: string): Promise<Eff
   const globalActiveSkills = await listGlobalActiveSkills();
   const catalogSkills = await getCatalogSkills();
 
-  const localMap = new Map(localSkills.map(s => [s.name, s]));
+  // Active always wins over dormant for the same name; a lingering dormant directory must not
+  // make an active skill look disabled.
+  const localMap = new Map<string, LocalSkillInfo>();
+  for (const skill of localSkills) {
+    const existing = localMap.get(skill.name);
+    if (!existing || (existing.isDormant && !skill.isDormant)) {
+      localMap.set(skill.name, skill);
+    }
+  }
   const globalMap = new Map(globalActiveSkills.map(s => [s.name, s]));
 
   const allNames = Array.from(new Set([
