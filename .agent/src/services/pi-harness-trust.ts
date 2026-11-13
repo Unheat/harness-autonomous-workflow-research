@@ -143,13 +143,47 @@ export function readPiProjectTrust(agentDir: string, workspaceRoot: string): PiT
 }
 
 /**
- * Reports trust gaps that silently disable the projection for pi-like harnesses.
+ * Lists the project resources pi loads only for a trusted project.
+ *
+ * Skills matter as much as the MCP projection: pi reads project `.agents/skills` (and `.pi/skills`)
+ * only after trust, so an untrusted workspace silently loses every project skill while the manager
+ * still reports it as active.
+ *
+ * @param workspaceRoot Workspace being audited.
+ * @returns Human-readable resource labels; empty when the workspace has nothing trust-gated.
+ */
+function listPiTrustGatedResources(workspaceRoot: string): string[] {
+  const resources: string[] = [];
+
+  const projectionPath = path.join(workspaceRoot, PI_PROJECT_CONFIG_DIR, PI_PROJECT_MCP_BASENAME);
+  if (fs.existsSync(projectionPath)) resources.push(path.join(PI_PROJECT_CONFIG_DIR, PI_PROJECT_MCP_BASENAME));
+
+  for (const skillsSubpath of [path.join('.agents', 'skills'), path.join(PI_PROJECT_CONFIG_DIR, 'skills')]) {
+    const skillsDir = path.join(workspaceRoot, skillsSubpath);
+    if (!fs.existsSync(skillsDir)) continue;
+    const skillNames = fs
+      .readdirSync(skillsDir, { withFileTypes: true })
+      .filter(entry => fs.existsSync(path.join(skillsDir, entry.name, 'SKILL.md')))
+      .map(entry => entry.name);
+    if (skillNames.length > 0) resources.push(`${skillsSubpath} (${skillNames.join(', ')})`);
+  }
+
+  return resources;
+}
+
+/**
+ * Reports trust gaps that silently disable project resources for pi-like harnesses.
  *
  * @param workspaceRoot Workspace being audited.
  * @returns One human-readable warning per discovered agent directory that would ignore it.
  */
 export function describePiTrustGaps(workspaceRoot: string): string[] {
-  const projectionPath = path.join(workspaceRoot, PI_PROJECT_CONFIG_DIR, PI_PROJECT_MCP_BASENAME);
+  const resources = listPiTrustGatedResources(workspaceRoot);
+  // An empty list still reports: a projection written later must not start silent.
+  const resourceLabel = resources.length > 0
+    ? resources.join(', ')
+    : path.join(PI_PROJECT_CONFIG_DIR, PI_PROJECT_MCP_BASENAME);
+
   return listExistingPiAgentDirs().flatMap(agentDir => {
     const status = readPiProjectTrust(agentDir, workspaceRoot);
     if (status.decision === 'trusted') return [];
@@ -157,8 +191,10 @@ export function describePiTrustGaps(workspaceRoot: string): string[] {
       ? `an inherited "untrusted" decision at ${status.matchedPath}`
       : 'no saved trust decision';
     return [
-      `pi-like harness at ${agentDir} ignores ${projectionPath} (${reason}). ` +
-      'Approve the project once in that harness, or set "defaultProjectTrust": "always" in its settings; ' +
+      `pi-like harness at ${agentDir} ignores ${resourceLabel} (${reason}). ` +
+      'A headless harness (desktop app or RPC) has no trust prompt, so the "ask" default resolves to ' +
+      'untrusted and project skills and MCP servers never load. Approve the project once in an interactive ' +
+      `pi session, or set "defaultProjectTrust": "always" in ${path.join(agentDir, 'settings.json')}; ` +
       'the manager must never grant trust on the harness\'s behalf.'
     ];
   });

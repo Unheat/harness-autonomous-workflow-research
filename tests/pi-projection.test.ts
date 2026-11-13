@@ -269,6 +269,23 @@ describe('pi trust resolution (mirrors nearest-ancestor semantics)', () => {
     expect(gaps).toHaveLength(1);
     expect(gaps[0]).toContain('never grant trust');
   });
+
+  test('names the project skills a headless harness silently drops', async () => {
+    const agentDir = await seedAgentDir({});
+    process.env[PI_AGENT_DIR_ENV] = agentDir;
+    const skillDir = path.join(tmpDir, '.agents', 'skills', 'composio-cli');
+    await fsp.mkdir(skillDir, { recursive: true });
+    await fsp.writeFile(
+      path.join(skillDir, 'SKILL.md'),
+      '---\nname: composio-cli\ndescription: Operate Composio.\n---\n',
+      'utf-8'
+    );
+
+    const gaps = describePiTrustGaps(tmpDir);
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]).toContain('composio-cli');
+    expect(gaps[0]).toContain('no trust prompt');
+  });
 });
 
 describe('user scope: agent-dir projection is the manager, not a hand-maintained file', () => {
