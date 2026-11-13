@@ -115,6 +115,20 @@
     button.btn-primary:hover { background: #ffffff; }
 
     /* Metrics Grid */
+    .trust-banner {
+      display: none;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      border: 1px solid var(--warning);
+      border-radius: var(--radius);
+      background: var(--warning-dim);
+      color: var(--text);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+    .trust-banner strong { color: var(--warning); }
+    .trust-banner ul { margin: 6px 0 0; padding-left: 18px; }
+
     .metrics-bar {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -498,6 +512,9 @@
     </div>
   </header>
 
+  <!-- Harness divergence: resources the manager shows but a harness will not load -->
+  <div class="trust-banner" id="trust-banner"></div>
+
   <!-- Metrics Grid -->
   <div class="metrics-bar">
     <div class="metric-card">
@@ -698,6 +715,24 @@
 
         document.getElementById("ws-name").innerText = data.workspace.name;
         document.getElementById("ws-path").innerText = `(${data.workspace.path})`;
+
+        const trustBanner = document.getElementById("trust-banner");
+        const trustGaps = data.pi_trust_gaps || [];
+        trustBanner.innerHTML = "";
+        if (trustGaps.length > 0) {
+          const heading = document.createElement("div");
+          heading.innerHTML = "<strong>⚠️ Project resources are not loaded by a detected harness.</strong> The manager still lists them because other harnesses may load them:";
+          const list = document.createElement("ul");
+          for (const gap of trustGaps) {
+            const item = document.createElement("li");
+            item.textContent = gap;
+            list.appendChild(item);
+          }
+          trustBanner.append(heading, list);
+          trustBanner.style.display = "block";
+        } else {
+          trustBanner.style.display = "none";
+        }
         
         document.getElementById("val-injected").innerText = `~${data.metrics.injected_tokens.toLocaleString()} tokens`;
         document.getElementById("val-saved").innerText = `+${data.metrics.saved_tokens.toLocaleString()} tokens`;

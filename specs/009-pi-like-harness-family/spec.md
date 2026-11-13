@@ -79,6 +79,9 @@ assert `auditWorkspace` reports one stale-projection warning and one trust warni
 2. **Given** a discovered agent directory whose trust store lacks the workspace, **When** auditing, **Then** the
    warning names the directory and states that the manager must never grant trust on the harness's behalf.
 3. **Given** `harness heal` on a trusted project, **When** it completes, **Then** `trust.json` is unchanged.
+4. **Given** `"defaultProjectTrust": "always"` in the harness settings, **When** auditing, **Then** no trust
+   warning is reported; **Given** `"never"`, **Then** the warning names the setting instead of claiming there is
+   no decision. The audit must never prescribe a fix it cannot recognise.
 
 ## Functional Requirements
 
@@ -97,6 +100,11 @@ assert `auditWorkspace` reports one stale-projection warning and one trust warni
   is opt-in per server through the hub declaration.
 - **FR-11**: Only names the manager does not own count as unmigrated declarations, so a generated projection is
   never destroyed by centralisation.
+- **FR-12**: Report trust gaps exactly as the harness resolves them: a saved nearest-ancestor entry wins, then
+  `defaultProjectTrust` (`always`/`never`), then the `ask` prompt — which a headless harness cannot show, so it
+  resolves untrusted. A workspace with no trust-gated project resources reports no gap.
+- **FR-13**: Expose trust gaps in `harness status` and the Web UI, not only the doctor modal, so a resource the
+  manager lists as active is never silently dropped by one harness without surfacing the divergence.
 
 ## Cross-Resource Coverage
 

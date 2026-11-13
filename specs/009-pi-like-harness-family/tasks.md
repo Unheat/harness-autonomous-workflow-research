@@ -69,3 +69,11 @@
 - [x] T014 [P] Add `tests/pi-projection.test.ts` (20 cases: dialect, lifecycle, symlink poisoning, trust semantics, hub integration).
 - [x] T015 [P] Update `docs/ARCHITECTURE.md` and add `docs/solutions/pi-like-harness-projection.md`.
 - [x] T016 Run `bun test` (117 passing) and verify `harness doctor` / `harness status` live output.
+
+## Phase 7: Trust reporting parity (implemented)
+
+- [x] T023 Resolve `defaultProjectTrust` (`always`/`never`/`ask`) from `<agentDir>/settings.json` when `trust.json` has no matching entry, so the audit honours the fix it prescribes (FR-12).
+- [x] T024 Report no gap when a workspace has no trust-gated resources, and keep skills-only workspaces visible without requiring an MCP projection.
+- [x] T025 Collapse a relocated agent directory and its stock symlink into one harness during discovery (real-path dedupe).
+- [x] T026 Surface trust gaps in `/api/status` (dashboard banner) and `harness status`, not only the doctor modal (FR-13).
+- [x] T027 Extend `tests/pi-projection.test.ts`: settings fallback, saved-entry precedence, `never` reason, invalid settings, no-resource silence, skills-only doctor warning, symlink dedupe.

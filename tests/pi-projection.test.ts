@@ -16,14 +16,17 @@ const {
 } = await import('../.agent/src/services/pi-mcp-projection');
 const {
   readPiProjectTrust,
+  readPiDefaultProjectTrust,
   describePiTrustGaps,
-  discoverPiAgentDirs
+  discoverPiAgentDirs,
+  listExistingPiAgentDirs
 } = await import('../.agent/src/services/pi-harness-trust');
-const { PI_AGENT_DIR_ENV, PI_LIKE_AGENT_DIRS_ENV, PI_TRUST_BASENAME } = await import('../.agent/src/config');
+const { PI_AGENT_DIR_ENV, PI_LIKE_AGENT_DIRS_ENV, PI_TRUST_BASENAME, PI_SETTINGS_BASENAME } = await import('../.agent/src/config');
 const { reconcileWorkspaceAdapters } = await import('../.agent/src/workspace');
 const { enableMcp, disableMcp, saveLocalMcps } = await import('../.agent/src/mcp');
 const { enableGlobalMcp } = await import('../.agent/src/mcp-global');
 const { syncHarnessProjections } = await import('../.agent/src/services/harness-sync-service');
+const { auditWorkspace } = await import('../.agent/src/doctor');
 
 let tmpDir: string;
 
@@ -261,13 +264,106 @@ describe('pi trust resolution (mirrors nearest-ancestor semantics)', () => {
     expect(new Set(dirs).size).toBe(dirs.length);
   });
 
+  test('collapses a relocated agent dir and its stock symlink into one harness', async () => {
+    const real = path.join(tmpDir, 'relocated-agent');
+    await fsp.mkdir(real, { recursive: true });
+    const link = path.join(tmpDir, 'stock-agent-link');
+    await fsp.symlink(real, link);
+    process.env[PI_AGENT_DIR_ENV] = real;
+    process.env[PI_LIKE_AGENT_DIRS_ENV] = link;
+
+    const dirs = listExistingPiAgentDirs();
+    expect(dirs.filter(d => d === real || d === link)).toHaveLength(1);
+  });
+
+  async function seedSkill(name: string): Promise<void> {
+    const skillDir = path.join(tmpDir, '.agents', 'skills', name);
+    await fsp.mkdir(skillDir, { recursive: true });
+    await fsp.writeFile(
+      path.join(skillDir, 'SKILL.md'),
+      `---\nname: ${name}\ndescription: Fixture skill.\n---\n`,
+      'utf-8'
+    );
+  }
+
   test('reports a trust gap for an untrusted harness without offering to grant it', async () => {
     const agentDir = await seedAgentDir({});
     process.env[PI_AGENT_DIR_ENV] = agentDir;
+    await seedSkill('composio-cli');
 
     const gaps = describePiTrustGaps(tmpDir);
     expect(gaps).toHaveLength(1);
     expect(gaps[0]).toContain('never grant trust');
+  });
+
+  test('reports no gap when the workspace has nothing trust-gated', async () => {
+    const agentDir = await seedAgentDir({});
+    process.env[PI_AGENT_DIR_ENV] = agentDir;
+
+    expect(describePiTrustGaps(tmpDir)).toEqual([]);
+  });
+
+  test('honours "defaultProjectTrust": "always" instead of warning forever', async () => {
+    const agentDir = await seedAgentDir({});
+    process.env[PI_AGENT_DIR_ENV] = agentDir;
+    await seedSkill('composio-cli');
+    await fsp.writeFile(
+      path.join(agentDir, PI_SETTINGS_BASENAME),
+      JSON.stringify({ defaultProjectTrust: 'always' }),
+      'utf-8'
+    );
+
+    expect(readPiDefaultProjectTrust(agentDir)).toBe('always');
+    expect(readPiProjectTrust(agentDir, tmpDir)).toMatchObject({ decision: 'trusted', defaultProjectTrust: 'always' });
+    expect(describePiTrustGaps(tmpDir)).toEqual([]);
+  });
+
+  test('a saved trust entry still wins over defaultProjectTrust', async () => {
+    const canonicalRoot = fs.realpathSync(tmpDir);
+    const agentDir = await seedAgentDir({ [canonicalRoot]: false });
+    process.env[PI_AGENT_DIR_ENV] = agentDir;
+    await fsp.writeFile(
+      path.join(agentDir, PI_SETTINGS_BASENAME),
+      JSON.stringify({ defaultProjectTrust: 'always' }),
+      'utf-8'
+    );
+
+    expect(readPiProjectTrust(agentDir, tmpDir)).toMatchObject({
+      decision: 'untrusted',
+      matchedPath: canonicalRoot
+    });
+  });
+
+  test('names "never" as the reason when settings disable project trust', async () => {
+    const agentDir = await seedAgentDir({});
+    process.env[PI_AGENT_DIR_ENV] = agentDir;
+    await seedSkill('composio-cli');
+    await fsp.writeFile(
+      path.join(agentDir, PI_SETTINGS_BASENAME),
+      JSON.stringify({ defaultProjectTrust: 'never' }),
+      'utf-8'
+    );
+
+    const gaps = describePiTrustGaps(tmpDir);
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]).toContain('"defaultProjectTrust" is "never"');
+  });
+
+  test('an invalid defaultProjectTrust falls back to "ask" semantics', async () => {
+    const agentDir = await seedAgentDir(null);
+    await fsp.writeFile(path.join(agentDir, PI_SETTINGS_BASENAME), '{not json', 'utf-8');
+
+    expect(readPiDefaultProjectTrust(agentDir)).toBeUndefined();
+    expect(readPiProjectTrust(agentDir, tmpDir).decision).toBe('unknown');
+  });
+
+  test('doctor reports a skills-only workspace with no MCP projection', async () => {
+    const agentDir = await seedAgentDir({});
+    process.env[PI_AGENT_DIR_ENV] = agentDir;
+    await seedSkill('composio-cli');
+
+    const report = await auditWorkspace(tmpDir);
+    expect(report.issues.some(i => i.message.includes('.agents/skills (composio-cli)'))).toBe(true);
   });
 
   test('names the project skills a headless harness silently drops', async () => {

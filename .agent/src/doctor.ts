@@ -159,10 +159,9 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
       message: `pi-like harness would reject MCP server "${issue.server}": ${issue.reason}.`
     });
   }
-  if (piProjection.servers > 0 && piProjection.state !== 'blocked') {
-    for (const warning of describePiTrustGaps(root)) {
-      issues.push({ severity: 'warning', message: warning });
-    }
+  // Only warns when the workspace actually has trust-gated project resources (skills/MCP projection).
+  for (const warning of describePiTrustGaps(root)) {
+    issues.push({ severity: 'warning', message: warning });
   }
 
   // 6. Audit user-scope projections: `<agentDir>/mcp.json` must mirror the manager's global scope

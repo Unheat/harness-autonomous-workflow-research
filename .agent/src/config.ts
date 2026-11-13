@@ -30,6 +30,13 @@ export const PI_PROJECT_MCP_BASENAME = 'mcp.json';
 /** Agent-directory basename holding per-harness trust decisions. */
 export const PI_TRUST_BASENAME = 'trust.json';
 
+/** Agent-directory settings file holding `defaultProjectTrust`. */
+export const PI_SETTINGS_BASENAME = 'settings.json';
+
+/** Values pi accepts for `defaultProjectTrust` (see its settings schema). */
+export const PI_DEFAULT_PROJECT_TRUST_VALUES = ['ask', 'always', 'never'] as const;
+export type PiDefaultProjectTrust = typeof PI_DEFAULT_PROJECT_TRUST_VALUES[number];
+
 /** Environment variable with which pi-derived harnesses relocate their agent directory. */
 export const PI_AGENT_DIR_ENV = 'PI_CODING_AGENT_DIR';
 

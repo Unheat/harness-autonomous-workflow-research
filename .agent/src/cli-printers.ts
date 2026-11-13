@@ -6,6 +6,7 @@ import { getEffectiveMcpList } from './mcp-global';
 import { listAllSubagents } from './subagents';
 import { auditWorkspace } from './doctor';
 import { inspectPiProjection } from './services/pi-mcp-projection';
+import { describePiTrustGaps } from './services/pi-harness-trust';
 import { listLocalMcps } from './mcp';
 
 export async function printStatus(workspaceRoot: string): Promise<void> {
@@ -67,6 +68,9 @@ export async function printStatus(workspaceRoot: string): Promise<void> {
     ? colorize('synced', COLORS.GREEN)
     : colorize(piProjection.state, piProjection.state === 'blocked' ? COLORS.RED : COLORS.YELLOW);
   console.log(`  ${COLORS.DIM}↳ pi-like projection (.pi/mcp.json): ${piProjection.servers} server(s), ${projectionTag}${COLORS.RESET}`);
+  for (const gap of describePiTrustGaps(root)) {
+    console.log(`  ${colorize('⚠️  ' + gap, COLORS.YELLOW)}`);
+  }
 
   const estTokens = (activeSkills.length * TOKENS_PER_SKILL_PREVIEW) + (activeMcpCount * TOKENS_PER_MCP_SCHEMA);
   const blockedSkills = Math.max(0, catalogSkills.length - activeSkills.length);

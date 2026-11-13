@@ -8,6 +8,7 @@ import { listAllSubagents } from '../src/subagents';
 import { toggleSubagentTokenShield, deleteSubagentFile, findSubagentPath, toggleSubagentActive } from '../src/services/subagent-service';
 import { readConfigFile, writeConfigFile, type ConfigTarget } from '../src/services/config-service';
 import { auditWorkspace, healWorkspace } from '../src/doctor';
+import { describePiTrustGaps } from '../src/services/pi-harness-trust';
 import { TOKENS_PER_SKILL_PREVIEW, TOKENS_PER_MCP_SCHEMA } from '../src/config';
 
 function sendJson(res: http.ServerResponse, statusCode: number, data: any) {
@@ -49,7 +50,11 @@ export async function handleApiRoute(
       },
       skills: { effective: effectiveSkills },
       mcps: { effective: effectiveMcps, local: localMcps, global: globalMcps, catalog: catalogMcps },
-      subagents
+      subagents,
+      // A green "ACTIVE" toggle is a claim about the workspace, not about every harness. pi-family
+      // harnesses silently drop these resources until the project is trusted; surface that here so
+      // the dashboard never shows MORE than the harness will actually load.
+      pi_trust_gaps: describePiTrustGaps(root)
     });
     return true;
   }

@@ -7,7 +7,10 @@ import {
   PI_LIKE_AGENT_DIRS_ENV,
   PI_PROJECT_CONFIG_DIR,
   PI_PROJECT_MCP_BASENAME,
-  PI_TRUST_BASENAME
+  PI_SETTINGS_BASENAME,
+  PI_TRUST_BASENAME,
+  PI_DEFAULT_PROJECT_TRUST_VALUES,
+  type PiDefaultProjectTrust
 } from '../config';
 
 /**
@@ -29,6 +32,8 @@ export interface PiTrustStatus {
   decision: PiTrustDecision;
   /** Path of the matching trust entry (the project itself or an ancestor). */
   matchedPath?: string;
+  /** Settings fallback pi uses when no trust entry matches. */
+  defaultProjectTrust?: PiDefaultProjectTrust;
 }
 
 /**
@@ -72,10 +77,22 @@ export function discoverPiAgentDirs(): string[] {
 /**
  * Filters {@link discoverPiAgentDirs} down to directories that actually exist.
  *
- * @returns Absolute agent directories present on disk.
+ * Symlinked duplicates are collapsed by real path: an app that relocates its agent dir and also
+ * leaves the stock `~/.pi/agent` symlink pointing at it is one harness, not two.
+ *
+ * @returns Absolute agent directories present on disk, first spelling preserved.
  */
 export function listExistingPiAgentDirs(): string[] {
-  return discoverPiAgentDirs().filter(dir => fs.existsSync(dir));
+  const seen = new Set<string>();
+  const dirs: string[] = [];
+  for (const dir of discoverPiAgentDirs()) {
+    if (!fs.existsSync(dir)) continue;
+    const key = canonicalizeForTrust(dir);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    dirs.push(dir);
+  }
+  return dirs;
 }
 
 /**
@@ -116,30 +133,68 @@ function readPiTrustFile(trustPath: string): Record<string, boolean | null> {
 }
 
 /**
+ * Reads pi's `defaultProjectTrust` setting from `<agentDir>/settings.json`.
+ *
+ * pi consults this only when `trust.json` holds no matching entry. The manager reports gaps, so it
+ * must honour the same fallback — otherwise a user who followed the warning's advice keeps the
+ * warning forever, which is a false report.
+ *
+ * @param agentDir Agent directory owning `settings.json`.
+ * @returns The configured value, or `undefined` when absent/invalid (pi's `"ask"` default).
+ */
+export function readPiDefaultProjectTrust(agentDir: string): PiDefaultProjectTrust | undefined {
+  const settingsPath = path.join(agentDir, PI_SETTINGS_BASENAME);
+  try {
+    const raw = fs.readFileSync(settingsPath, 'utf-8').replace(/^\uFEFF/, '');
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+    const value = (parsed as Record<string, unknown>).defaultProjectTrust;
+    return typeof value === 'string' && (PI_DEFAULT_PROJECT_TRUST_VALUES as readonly string[]).includes(value)
+      ? value as PiDefaultProjectTrust
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Resolves pi's project trust decision for a workspace, mirroring its nearest-ancestor lookup.
+ *
+ * Order matches pi: a saved trust entry (nearest ancestor) wins, then `defaultProjectTrust`, then
+ * the interactive prompt — which a headless harness cannot show, so it resolves to untrusted.
  *
  * @param agentDir Agent directory owning `trust.json`.
  * @param workspaceRoot Workspace being opened.
- * @returns Trust decision plus the entry that decided it.
+ * @returns Trust decision plus the entry (if any) and settings fallback that decided it.
  */
 export function readPiProjectTrust(agentDir: string, workspaceRoot: string): PiTrustStatus {
+  const defaultProjectTrust = readPiDefaultProjectTrust(agentDir);
   const trustPath = path.join(agentDir, PI_TRUST_BASENAME);
-  if (!fs.existsSync(trustPath)) return { agentDir, decision: 'unknown' };
-
   const entries = readPiTrustFile(trustPath);
-  if (Object.keys(entries).length === 0) return { agentDir, decision: 'unknown' };
 
   let current = canonicalizeForTrust(workspaceRoot);
   const root = path.parse(current).root;
-  while (true) {
+  const hasEntries = Object.keys(entries).length > 0;
+  while (hasEntries) {
     const value = entries[current];
     if (value === true || value === false) {
-      return { agentDir, decision: value ? 'trusted' : 'untrusted', matchedPath: current };
+      return {
+        agentDir,
+        decision: value ? 'trusted' : 'untrusted',
+        matchedPath: current,
+        defaultProjectTrust
+      };
     }
     const parent = path.dirname(current);
-    if (current === root || parent === current) return { agentDir, decision: 'untrusted' };
+    if (current === root || parent === current) break;
     current = parent;
   }
+
+  if (defaultProjectTrust === 'always') return { agentDir, decision: 'trusted', defaultProjectTrust };
+  if (defaultProjectTrust === 'never') return { agentDir, decision: 'untrusted', defaultProjectTrust };
+
+  // "ask" (or no setting): with a trust store that simply has no match pi still cannot prompt here.
+  return { agentDir, decision: hasEntries ? 'untrusted' : 'unknown', defaultProjectTrust };
 }
 
 /**
@@ -152,7 +207,7 @@ export function readPiProjectTrust(agentDir: string, workspaceRoot: string): PiT
  * @param workspaceRoot Workspace being audited.
  * @returns Human-readable resource labels; empty when the workspace has nothing trust-gated.
  */
-function listPiTrustGatedResources(workspaceRoot: string): string[] {
+export function listPiTrustGatedResources(workspaceRoot: string): string[] {
   const resources: string[] = [];
 
   const projectionPath = path.join(workspaceRoot, PI_PROJECT_CONFIG_DIR, PI_PROJECT_MCP_BASENAME);
@@ -179,22 +234,23 @@ function listPiTrustGatedResources(workspaceRoot: string): string[] {
  */
 export function describePiTrustGaps(workspaceRoot: string): string[] {
   const resources = listPiTrustGatedResources(workspaceRoot);
-  // An empty list still reports: a projection written later must not start silent.
-  const resourceLabel = resources.length > 0
-    ? resources.join(', ')
-    : path.join(PI_PROJECT_CONFIG_DIR, PI_PROJECT_MCP_BASENAME);
+  // Nothing trust-gated means pi loads the workspace unconditionally: reporting a gap would be a lie.
+  if (resources.length === 0) return [];
+  const resourceLabel = resources.join(', ');
 
   return listExistingPiAgentDirs().flatMap(agentDir => {
     const status = readPiProjectTrust(agentDir, workspaceRoot);
     if (status.decision === 'trusted') return [];
     const reason = status.matchedPath
       ? `an inherited "untrusted" decision at ${status.matchedPath}`
-      : 'no saved trust decision';
+      : status.defaultProjectTrust === 'never'
+        ? `"defaultProjectTrust" is "never" in ${path.join(agentDir, PI_SETTINGS_BASENAME)}`
+        : `no saved trust decision and "defaultProjectTrust" is "${status.defaultProjectTrust ?? 'ask'}"`;
     return [
       `pi-like harness at ${agentDir} ignores ${resourceLabel} (${reason}). ` +
       'A headless harness (desktop app or RPC) has no trust prompt, so the "ask" default resolves to ' +
       'untrusted and project skills and MCP servers never load. Approve the project once in an interactive ' +
-      `pi session, or set "defaultProjectTrust": "always" in ${path.join(agentDir, 'settings.json')}; ` +
+      `pi session, or set "defaultProjectTrust": "always" in ${path.join(agentDir, PI_SETTINGS_BASENAME)}; ` +
       'the manager must never grant trust on the harness\'s behalf.'
     ];
   });
