@@ -27,6 +27,13 @@ export async function ensureSkillInvocable(skillDir: string): Promise<boolean> {
 }
 
 /**
+ * True when the machine catalog owns a skill with this name.
+ */
+export function isSkillInCatalog(skillName: string): boolean {
+  return fs.existsSync(path.join(GLOBAL_CATALOG_SKILLS_DIR, skillName, 'SKILL.md'));
+}
+
+/**
  * Copies a skill directory into central catalog (~/.agents/catalog/skills/) if not already there.
  */
 export async function syncSkillToCatalog(sourcePath: string, skillName: string): Promise<boolean> {

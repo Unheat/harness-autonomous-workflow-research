@@ -27,3 +27,8 @@ export function parseJsonBody(req: http.IncomingMessage): Promise<any> {
     req.on('error', reject);
   });
 }
+
+export function sendJson(res: http.ServerResponse, statusCode: number, data: any): void {
+  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(data, null, 2));
+}

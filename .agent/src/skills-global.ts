@@ -79,6 +79,7 @@ export async function getEffectiveSkillsList(workspaceRoot: string): Promise<Eff
     }
   }
   const globalMap = new Map(globalActiveSkills.map(s => [s.name, s]));
+  const catalogSet = new Set(catalogSkills);
 
   const allNames = Array.from(new Set([
     ...localSkills.map(s => s.name),
@@ -105,6 +106,7 @@ export async function getEffectiveSkillsList(workspaceRoot: string): Promise<Eff
     }
 
     const description = await getSkillDescription(name, workspaceRoot);
+    const inCatalog = catalogSet.has(name);
 
     result.push({
       name,
@@ -114,6 +116,7 @@ export async function getEffectiveSkillsList(workspaceRoot: string): Promise<Eff
       isGlobalActive,
       isDormant,
       isLink: local ? local.isLink : false,
+      inCatalog,
       description
     });
   }

@@ -49,6 +49,7 @@ A fast, strongly-typed CLI and visual dashboard (running on Bun + TypeScript) fo
 - **Subagent Token Shielding**: Automatically strips non-essential skills and heavy tools from child subagent frontmatter (`toggleSubagentTokenShield`), preventing context window bloat.
 - **Cross-Harness Adapter Auto-Healing**: Reconciles and repairs symlinks for Claude Code (`.claude`), Cursor (`.cursor`), DeepSeek Harness (`.dsh`), Codex (`.codex`), OpenCode (`.opencode`), and ZCode (`.zcode`).
 - **Minimalist Vibe Coder Web UI**: Local dashboard served on port `20888` with token gauges, 1-click skill/MCP toggles, and live search.
+- **Catalog Promotion & Skill Import**: Any project-local folder skill can be promoted into the machine catalog ("📦") and is then relinked, so other workspaces can reuse it. "📥 Import" pulls local skills from another workspace folder, keeping each entry's nature — linked stays linked, private copy stays private — and never writes to the catalog.
 
 #### Standalone Installation Guide:
 

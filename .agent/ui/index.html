@@ -548,6 +548,7 @@
         <div class="tab-group">
           <button class="tab-btn active" id="tab-skill-ws" onclick="switchSkillTab('workspace')">Workspace</button>
           <button class="tab-btn" id="tab-skill-global" onclick="switchSkillTab('global')">Global</button>
+          <button class="tab-btn" id="tab-skill-import" onclick="openImportSkillModal()" title="Import a local skill from another workspace folder">📥 Import</button>
         </div>
       </div>
       <div class="search-box" style="display: flex; gap: 8px; align-items: center;">
@@ -639,6 +640,35 @@
       <div class="modal-footer">
         <button class="btn" onclick="closeDoctorModal()">Close</button>
         <button class="btn btn-primary" onclick="healSymlinks()">Run Auto-Heal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Local Skill Modal -->
+  <div class="modal-overlay" id="import-skill-modal">
+    <div class="modal" style="max-width: 720px;">
+      <div class="modal-header">
+        <div class="modal-title">📥 Import Local Skill From Another Workspace</div>
+        <button class="icon-btn" onclick="closeImportSkillModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+          Choose the other workspace folder (for example the <code>workflow</code> repo). A linked skill keeps sharing its content;
+          a private local skill is copied into this workspace and is <strong>not</strong> added to the machine catalog.
+        </p>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+          <input type="text" id="import-source-path" list="import-source-history" placeholder="/Users/you/study/other-workspace"
+            onkeydown="if (event.key === 'Enter') scanImportSource()"
+            style="flex: 1; min-width: 240px; background: var(--surface-elevated); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 7px 10px; font-size: 0.82rem; outline: none;">
+          <datalist id="import-source-history"></datalist>
+          <button class="btn" onclick="chooseImportFolder()">📁 Choose Folder…</button>
+          <button class="btn btn-primary" onclick="scanImportSource()">Scan</button>
+        </div>
+        <div id="import-status" style="font-size: 0.8rem; color: var(--text-muted); min-height: 18px;"></div>
+        <ul class="item-list" id="import-skill-list" style="max-height: 320px; margin-top: 10px;"></ul>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeImportSkillModal()">Close</button>
       </div>
     </div>
   </div>
@@ -749,6 +779,7 @@
           isGlobalActive: s.isGlobalActive,
           isDormant: s.isDormant,
           isLink: s.isLink,
+          inCatalog: !!s.inCatalog,
           description: s.description || ""
         }));
 
@@ -879,6 +910,7 @@
             </div>
             <div class="row-actions">
               <button class="icon-btn" onclick="openConfigModal('skill', '${s.name}')" title="Edit SKILL.md">📝</button>
+              ${(s.isProjectActive && !s.isLink && !s.inCatalog) ? `<button class="icon-btn" onclick="promoteSkillToCatalog('${s.name}')" title="Add this local skill to the machine catalog and link it here">📦</button>` : ""}
               <button class="icon-btn icon-btn-danger" onclick="deleteSkillPrompt('${s.name}')" title="Permanently delete skill">🗑️</button>
               <label class="switch">
                 <input type="checkbox" ${isChecked ? "checked" : ""} onchange="toggleSkill('${s.name}', this.checked, 'workspace')">
@@ -1177,6 +1209,125 @@
         await loadStatus();
       } catch (err) {
         showToast("Error updating skill");
+      }
+    }
+
+    /* Machine catalog promotion + cross-workspace import */
+    async function promoteSkillToCatalog(name) {
+      if (!confirm(`Add "${name}" to the machine catalog?\n\nIt will be copied to ~/.agents/catalog/skills/ and this workspace entry becomes a symlink to that copy.`)) return;
+      try {
+        const res = await fetch("/api/skill/to-catalog", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name })
+        });
+        const result = await res.json();
+        showToast(result.message || `Added ${name} to catalog`);
+        await loadStatus();
+      } catch (err) {
+        showToast("Error adding skill to catalog");
+      }
+    }
+
+    function openImportSkillModal() {
+      document.getElementById("import-skill-modal").style.display = "flex";
+      document.getElementById("import-status").innerText = "";
+      document.getElementById("import-skill-list").innerHTML = "";
+      document.getElementById("import-source-path").value = "";
+    }
+
+    function closeImportSkillModal() {
+      document.getElementById("import-skill-modal").style.display = "none";
+    }
+
+    async function chooseImportFolder() {
+      const status = document.getElementById("import-status");
+      status.innerText = "Waiting for the folder picker…";
+      try {
+        const res = await fetch("/api/dialog/choose-directory", { method: "POST" });
+        const data = await res.json();
+        if (!data.success) {
+          status.innerText = data.message;
+          return;
+        }
+        document.getElementById("import-source-path").value = data.path;
+        await scanImportSource();
+      } catch (err) {
+        status.innerText = "Could not open the folder picker.";
+      }
+    }
+
+    async function scanImportSource() {
+      const sourceRoot = document.getElementById("import-source-path").value.trim();
+      const status = document.getElementById("import-status");
+      const list = document.getElementById("import-skill-list");
+      list.innerHTML = "";
+      if (!sourceRoot) {
+        status.innerText = "Enter or choose a workspace folder first.";
+        return;
+      }
+      status.innerText = "Scanning…";
+      try {
+        const res = await fetch("/api/skill/import/list", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceRoot })
+        });
+        const data = await res.json();
+        status.innerText = data.message || "";
+        if (!data.success || !Array.isArray(data.skills) || data.skills.length === 0) return;
+
+        data.skills.forEach(s => {
+          const li = document.createElement("li");
+          li.className = "item-row";
+          const badges = [];
+          if (s.conflict) {
+            badges.push(`<span class="badge badge-catalog">Already here (${s.conflict})</span>`);
+          } else if (s.isLink) {
+            badges.push(`<span class="badge badge-linked">Linked${s.linkedFromCatalog ? ": Catalog" : ""}</span>`);
+          } else {
+            badges.push(`<span class="badge badge-local">Local copy</span>`);
+            if (s.inCatalog) badges.push(`<span class="badge badge-catalog">Name in catalog</span>`);
+          }
+          const meta = s.description || (s.isLink ? `Shares ${s.linkTarget}` : "Private local skill (not in catalog)");
+          const action = s.conflict
+            ? `<button class="btn" disabled style="padding: 3px 8px; font-size: 0.72rem; opacity: 0.5;">Unavailable</button>`
+            : `<button class="btn import-action" style="padding: 3px 8px; font-size: 0.72rem;">Import</button>`;
+          li.innerHTML = `
+            <div class="item-info">
+              <div class="item-name">${escapeDoctorText(s.name)} ${badges.join(" ")}</div>
+              <div class="item-meta">${escapeDoctorText(meta)}</div>
+            </div>
+            <div class="row-actions">${action}</div>
+          `;
+          // Bound programmatically: a skill name is foreign input and must not reach an inline handler.
+          const importBtn = li.querySelector('.import-action');
+          if (importBtn) importBtn.addEventListener('click', () => importSkillFromSource(s.name));
+          list.appendChild(li);
+        });
+      } catch (err) {
+        status.innerText = "Scan failed.";
+      }
+    }
+
+    async function importSkillFromSource(name) {
+      const sourceRoot = document.getElementById("import-source-path").value.trim();
+      if (!sourceRoot) {
+        showToast("Choose a source workspace first");
+        return;
+      }
+      try {
+        const res = await fetch("/api/skill/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceRoot, name })
+        });
+        const result = await res.json();
+        showToast(result.message || `Imported ${name}`);
+        await scanImportSource();
+        await loadStatus();
+      } catch (err) {
+        showToast("Error importing skill");
       }
     }
 

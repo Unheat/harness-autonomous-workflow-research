@@ -1,5 +1,6 @@
 import type http from 'node:http';
-import { parseJsonBody } from './server-helpers';
+import { parseJsonBody, sendJson } from './server-helpers';
+import { handleSkillTransferRoute } from './routes-skill-transfer';
 import { addSkill, removeSkill, enableGlobalSkill, disableGlobalSkill, deleteSkillPermanent, getEffectiveSkillsList, isSkillActiveGlobally } from '../src/services/skill-service';
 import { listLocalMcps, enableMcp, disableMcp, removeMcp } from '../src/mcp';
 import { listGlobalMcps, enableGlobalMcp, disableGlobalMcp, removeGlobalMcp, getEffectiveMcpList } from '../src/mcp-global';
@@ -11,10 +12,6 @@ import { auditWorkspace, healWorkspace } from '../src/doctor';
 import { describePiTrustGaps } from '../src/services/pi-harness-trust';
 import { TOKENS_PER_SKILL_PREVIEW, TOKENS_PER_MCP_SCHEMA } from '../src/config';
 
-function sendJson(res: http.ServerResponse, statusCode: number, data: any) {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(data, null, 2));
-}
 
 export async function handleApiRoute(
   req: http.IncomingMessage,
@@ -191,6 +188,8 @@ export async function handleApiRoute(
     sendJson(res, 200, { success: true, message, actions, report });
     return true;
   }
+
+  if (await handleSkillTransferRoute(req, res, pathname, root)) return true;
 
   return false;
 }

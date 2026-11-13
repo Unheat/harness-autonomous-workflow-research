@@ -80,6 +80,8 @@ export interface EffectiveSkillInfo {
   isGlobalActive: boolean;
   isDormant: boolean;
   isLink: boolean;
+  /** True when the machine catalog owns a skill with this name. */
+  inCatalog: boolean;
   description: string;
 }
 
