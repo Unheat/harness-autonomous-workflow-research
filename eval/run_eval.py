@@ -3,17 +3,21 @@
 Universal Eval Harness for Autonomous SWE Judges (judge-plan & judge-pr)
 Adapted from CodePath AI301 evaluation methodology.
 
+Configuration:
+    Copy `eval/.env.example` to `eval/.env` (next to this script) and fill in
+    BASE_URL / MODEL / API_KEY. `.env` is gitignored; `.env.example` is the file
+    we ship. Precedence: CLI flag > EVAL_* environment variable > eval/.env > default.
+
 Usage:
-    # Fast smoke test against local 9router gateway:
+    # Fast smoke test against the configured gateway:
     python3 eval/run_eval.py --dir eval/judge-plan --limit 3
 
-    # Full evaluation run on judge-plan:
-    python3 eval/run_eval.py --dir eval/judge-plan --model stacks
+    # Full evaluation run:
+    python3 eval/run_eval.py --dir eval/judge-plan
+    python3 eval/run_eval.py --dir eval/judge-pr
 
-    # Full evaluation run on judge-pr:
-    python3 eval/run_eval.py --dir eval/judge-pr --model stacks
-
-    # Using Claude CLI if installed:
+    # Explicit overrides still win:
+    python3 eval/run_eval.py --dir eval/judge-plan --model fastg
     python3 eval/run_eval.py --dir eval/judge-plan --backend cli --model sonnet
 """
 
@@ -30,6 +34,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
+
+DEFAULT_BASE_URL = "http://127.0.0.1:20128/v1"
+DEFAULT_MODEL = "stacks"
+DEFAULT_CLI_MODEL = "sonnet"
+DEFAULT_TIMEOUT = 90
+DEFAULT_WORKERS = 4
+ENV_FILE_NAME = ".env"
+ENV_EXAMPLE_NAME = ".env.example"
 
 PROMPT_TEMPLATE = """\
 # Role & Skill Specification
@@ -156,17 +168,71 @@ def grade_one_item(item_id: str, bundle_path: Path, rubric_text: str, procedure_
     }
 
 
+def load_env_file(path: Path) -> dict:
+    """Reads a minimal KEY=VALUE config file (comments, blank lines, quotes handled)."""
+    values = {}
+    if not path.is_file():
+        return values
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if key:
+            values[key] = value.strip().strip('"').strip("'")
+    return values
+
+
+def first_set(*candidates):
+    """Returns the first non-empty candidate, so an unset flag can defer to env/file."""
+    for value in candidates:
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def mask_secret(secret: str) -> str:
+    """Reports presence without ever printing the key."""
+    if not secret:
+        return "missing"
+    return f"set …{secret[-4:]}" if len(secret) > 8 else "set"
+
+
+def resolve_settings(args, file_config: dict) -> dict:
+    """Resolves CLI flag > EVAL_* env > eval/.env > built-in default."""
+    if args.backend == "cli":
+        model = first_set(args.model, os.environ.get("EVAL_MODEL"),
+                          file_config.get("CLI_MODEL"), DEFAULT_CLI_MODEL)
+    else:
+        model = first_set(args.model, os.environ.get("EVAL_MODEL"),
+                          file_config.get("MODEL"), DEFAULT_MODEL)
+    return {
+        "backend": args.backend,
+        "model": model,
+        "endpoint": first_set(args.endpoint, os.environ.get("EVAL_BASE_URL"),
+                              file_config.get("BASE_URL"), DEFAULT_BASE_URL),
+        "api_key": first_set(args.api_key, os.environ.get("EVAL_API_KEY"),
+                             file_config.get("API_KEY"), os.environ.get("OPENAI_API_KEY")),
+        "timeout": int(first_set(args.timeout, os.environ.get("EVAL_TIMEOUT"),
+                                 file_config.get("TIMEOUT"), DEFAULT_TIMEOUT)),
+        "workers": int(first_set(args.workers, os.environ.get("EVAL_WORKERS"),
+                                 file_config.get("WORKERS"), DEFAULT_WORKERS)),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Autonomous SWE Judge Evaluation Harness")
     parser.add_argument("--dir", type=str, required=True, help="Path to judge eval directory (e.g. eval/judge-plan)")
     parser.add_argument("--backend", choices=["http", "cli"], default="http", help="Backend to use (http: 9router/OpenAI gateway, cli: claude CLI)")
-    parser.add_argument("--endpoint", type=str, default="http://127.0.0.1:20128/v1", help="API base URL for http mode")
-    parser.add_argument("--api-key", type=str, default=None, help="API key for http mode (defaults to ZCODE_9ROUTER_API_KEY env or local default)")
-    parser.add_argument("--model", type=str, default="stacks", help="Model to evaluate (e.g. stacks, fastg, sonnet)")
+    parser.add_argument("--env-file", type=str, default=None, help=f"Config file (default: {ENV_FILE_NAME} next to this script)")
+    parser.add_argument("--endpoint", type=str, default=None, help=f"API base URL for http mode (default: BASE_URL in {ENV_FILE_NAME}, else {DEFAULT_BASE_URL})")
+    parser.add_argument("--api-key", type=str, default=None, help=f"API key for http mode (default: API_KEY in {ENV_FILE_NAME} or EVAL_API_KEY)")
+    parser.add_argument("--model", type=str, default=None, help=f"Model to evaluate (default: MODEL in {ENV_FILE_NAME}, else {DEFAULT_MODEL})")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of items to evaluate")
     parser.add_argument("--only", type=str, default=None, help="Comma-separated list of item IDs (e.g. pkg-01,pkg-02)")
-    parser.add_argument("--workers", type=int, default=4, help="Parallel worker threads")
-    parser.add_argument("--timeout", type=int, default=90, help="Per-request timeout in seconds")
+    parser.add_argument("--workers", type=int, default=None, help=f"Parallel worker threads (default: WORKERS in {ENV_FILE_NAME}, else {DEFAULT_WORKERS})")
+    parser.add_argument("--timeout", type=int, default=None, help=f"Per-request timeout in seconds (default: TIMEOUT in {ENV_FILE_NAME}, else {DEFAULT_TIMEOUT})")
     parser.add_argument("--save-run", type=str, default=None, help="File to save the formatted evaluation report")
 
     args = parser.parse_args()
@@ -189,19 +255,18 @@ def main():
     procedure_text = procedure_file.read_text(encoding="utf-8")
     gold_data = json.loads(gold_file.read_text(encoding="utf-8"))
 
-    api_key = args.api_key or os.environ.get("ZCODE_9ROUTER_API_KEY")
-    if not api_key:
-        env_file = Path("archive/legacy-paperclip/.workbench/state/dsh-providers.env")
-        if env_file.exists():
-            for line in env_file.read_text().splitlines():
-                if line.startswith("ZCODE_9ROUTER_API_KEY="):
-                    api_key = line.split("=", 1)[1].strip()
-                    break
-    if not api_key:
-        api_key = os.environ.get("OPENAI_API_KEY", "")
+    env_path = Path(args.env_file).expanduser() if args.env_file else Path(__file__).resolve().parent / ENV_FILE_NAME
+    file_config = load_env_file(env_path)
+    settings = resolve_settings(args, file_config)
 
-    if args.backend == "http" and not api_key:
-        print("Error: API key required for HTTP backend. Provide via --api-key or ZCODE_9ROUTER_API_KEY / OPENAI_API_KEY environment variable.", file=sys.stderr)
+    if settings["backend"] == "http" and not settings["api_key"]:
+        example = env_path.with_name(ENV_EXAMPLE_NAME)
+        print(
+            f"Error: no API key for the HTTP backend.\n"
+            f"  cp {example} {env_path}  then set API_KEY (and BASE_URL / MODEL),\n"
+            f"  or pass --api-key, or set EVAL_API_KEY.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     gold_items = {item["id"]: item for item in gold_data.get("items", [])}
@@ -216,17 +281,21 @@ def main():
 
     print(f"=== Running Judge Evaluation Harness ===", flush=True)
     print(f"Target Directory: {eval_dir.name}", flush=True)
-    print(f"Backend:          {args.backend} ({args.endpoint if args.backend == 'http' else 'CLI'})", flush=True)
-    print(f"Model:            {args.model}", flush=True)
-    print(f"Evaluating:       {len(pkg_files)} packages with {args.workers} workers\n", flush=True)
+    print(f"Config:           {env_path} ({'found' if file_config else 'not found — using env/defaults'})", flush=True)
+    print(f"Backend:          {settings['backend']} ({settings['endpoint'] if settings['backend'] == 'http' else 'claude CLI'})", flush=True)
+    print(f"Model:            {settings['model']}", flush=True)
+    if settings["backend"] == "http":
+        print(f"API key:          {mask_secret(settings['api_key'])}", flush=True)
+    print(f"Evaluating:       {len(pkg_files)} packages with {settings['workers']} workers\n", flush=True)
 
     results = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=settings["workers"]) as executor:
         future_to_item = {
             executor.submit(
                 grade_one_item,
                 f.stem, f, rubric_text, procedure_text,
-                args.backend, args.model, args.endpoint, api_key, args.timeout
+                settings["backend"], settings["model"], settings["endpoint"],
+                settings["api_key"], settings["timeout"]
             ): f.stem for f in pkg_files
         }
         for future in concurrent.futures.as_completed(future_to_item):
