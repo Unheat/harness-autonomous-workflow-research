@@ -103,7 +103,7 @@ Every cell is one of: **native** (harness reads the hub directly, no adapter), *
 | OpenCode | link `.opencode/skills` | link `.opencode/agents` | `~/.config/opencode/opencode.json` |
 | ZCode | **native** `.agents/skills` (adapter pruned) | link `.zcode/agents` | `~/.zcode/cli/config.json` (user scope store) |
 | DeepSeek Harness (DSH) | link `.dsh/skills` | link `.dsh/agents`, but only the `dsh-subagents` plugin reads it — and it reads `$DSH_HOME/agents` (global) only | **projection** `cordis.patch.yml` |
-| pi / pi-like | **native** `.agents/skills` (user + ancestors, trust-gated) | **unsupported** — no `.pi/agents`; subagents arrive through the host's own delegation | **projection** `<workspace>/.pi/mcp.json` + `<agentDir>/mcp.json` |
+| pi / pi-like | **native** `.agents/skills` (user + ancestors, trust-gated) | **unsupported as a registry** — no `.pi/agents`; child tasks exist through the host (`subagent` when the provider exposes it, else `delegate_task`), so consumers dispatch prompt-only | **projection** `<workspace>/.pi/mcp.json` + `<agentDir>/mcp.json` |
 
 Three rules that follow from the matrix:
 
@@ -118,6 +118,11 @@ Three rules that follow from the matrix:
 Consumers that need reviewers on a harness with no registry do not wait for the manager: `swe-workflow`
 ships `manual.md` (prompt-only dispatch — agent body as system prompt, brief appended) and `inline.md`
 (no child tasks, verdicts labelled `self-audit (no independent judge)`).
+
+"No registry" is not "no subagents": pi has no `.pi/agents` directory, but the host both exposes
+app-owned child tasks (`orchestrator_capabilities.features.appOwnedSubagents`, per-provider
+`canRunChildTask`) and may expose a native `subagent` tool. Do not report a capability gap where the
+gap is only a registration gap.
 
 Detailed pi trust semantics: [`docs/solutions/pi-like-harness-projection.md`](solutions/pi-like-harness-projection.md).
 

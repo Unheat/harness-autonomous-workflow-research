@@ -19,7 +19,7 @@ Do not infer the harness from which folders exist in the repo: a repo routinely 
 
 1. User said **"inline"** or **"full-manual"** → `inline.md`.
 2. `judge-plan` and `judge-pr` are **registered subagents** — they appear in the harness's agent list, or the harness lets you invoke them by name without pasting a prompt → **registry mode**: run the phases in this file as written.
-3. The harness can spawn a **child task/agent** but has no registry entry for them (`Task`, `Agent`, `task`, `spawn_agent`, Codex subagents, DSH `agent_*`, or DeepAI Code `orchestrator_capabilities.canRunChildTask`) → **manual mode** → read `manual.md`.
+3. The harness can spawn a **child task/agent** but has no registry entry for them (`Task`, `Agent`, `task`, `subagent`, `spawn_agent`, Codex subagents, DSH `agent_*`, or DeepAI Code — a native `subagent` tool when exposed, otherwise `orchestrator_capabilities.canRunChildTask` → `delegate_task`) → **manual mode** → read `manual.md`.
 4. Otherwise (no child-task capability at all) → read `inline.md`.
 
 State the mode in your first update and in the evidence report: `mode=registry|manual|inline`. Never claim an independent judge ran when the mode was `inline`.

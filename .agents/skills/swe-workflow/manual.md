@@ -15,7 +15,7 @@ A registered subagent is two things glued together by the harness:
 
 | Piece | Registry mode | Manual mode (this file) |
 |---|---|---|
-| **System prompt** | harness injects the agent file's body | **you paste the body verbatim** as the child's prompt |
+| **System prompt** | harness injects the agent file's body | **you paste the body verbatim** into the child's prompt |
 | **Tool policy** | harness applies `tools` / `disallowedTools` | **you state it in the brief** — nothing enforces it |
 | **Task brief** | you pass a task | you pass the same brief, appended after the body |
 
@@ -23,6 +23,13 @@ So the rule is one sentence: **the child gets the agent file's body, then the br
 brief alone** (a child that only gets the brief is an unconstrained assistant wearing a job
 title), and **never a second copy of the body in this skill** (it would drift from
 `agents/*.md`).
+
+### Harnesses with a single prompt field
+
+Some delegation tools take one string and no `system` role (DeepAI Code's `delegate_task` is one).
+There the body goes **first** in that field, then a `---` separator, then the brief. It is delivered
+as task text, not as a system message, so add the instruction line below and keep the brief short:
+the child will weigh the body and the brief as one prompt, and a long brief can drown the body.
 
 ## Build the child prompt
 
@@ -84,11 +91,13 @@ files.
 | OpenCode | `task` tool with a generic agent | `permission: {edit: deny}` only for a registered agent |
 | Codex | subagents / `/subagents`; custom agents need a `.codex/agents/*.toml` file | none by default — brief only |
 | DSH | `agent_<name>` tool **only if** the role exists in `~/.dsh/agents/`; otherwise generic spawn | brief only |
-| **DeepAI Code (pi)** | call `orchestrator_capabilities`; if `canRunChildTask` is true, call `delegate_task` with `role: "review"` and `runtimeMode: "approval-required"` | `approval-required` blocks silent edits — the closest thing to read-only |
+| **DeepAI Code (pi)** | prefer the native `subagent` tool when the session exposes it; otherwise call `orchestrator_capabilities` and, if `canRunChildTask` is true, call `delegate_task` with `role: "review"` and `runtimeMode: "approval-required"`. Cross-provider is supported: run the judge on `claudeAgent` while the lead runs `deepai` | `approval-required` blocks silent edits; a different provider gives real independence |
 | anything else | whatever spawns a child turn | state it; if none, use `inline.md` |
 
-DeepAI Code note: `delegate_task` takes one `task` string, so the body **must** be embedded —
-there is no `system` field, and no `~/.pi/agents` registry to read from.
+DeepAI Code note: there is no `~/.pi/agents` registry to read, and `delegate_task` takes one `task`
+string with no `system` field — so the body **must** be embedded (see *Single prompt field* above).
+Subagents are a first-class capability there (`appOwnedSubagents: true`, `canRunChildTask: true` per
+provider); the absence of a registry is a skill-registration gap, not a capability gap.
 
 ## Independence is weaker here — record it
 
