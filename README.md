@@ -137,11 +137,13 @@ npx skills add Unheat/harness-autonomous-workflow-research --skill swe-workflow
 claude plugin install /path/to/.agents/skills/swe-workflow
 ```
 
-#### Zero-Config Self-Bootstrapping:
-`swe-workflow` is **100% self-bootstrapping**. On its very first run, if it detects that its child subagents (`judge-plan`, `judge-pr`, `explore-code`, `research`) are not yet registered in your harness's agent directories (`.agent/agents/` or `.claude/agents/`), it automatically executes its bundled `setup.sh`:
-- Auto-registers subagents for Claude Code, DeepSeek Harness, Cursor, Codex, and ZCode.
-- Scaffolds cross-harness adapter symlinks.
-- Optionally installs the universal git pre-push hook.
+#### Three Modes, One Contract:
+`swe-workflow` picks a reviewer dispatch path from the live runtime, not from the folders in the repo, and states it in its first update (`mode=registry|manual|inline`):
+- **registry** — `judge-plan`/`judge-pr` are registered subagents (Claude Code, ZCode, Cursor, OpenCode, DSH with the `dsh-subagents` plugin). `SKILL.md` runs the phases directly.
+- **manual** — the harness can spawn a child task but has no registry entry (pi / DeepAI Code, Codex without a TOML projection). `manual.md` passes the agent's own body as the child's system prompt plus the brief, because nothing else supplies it.
+- **inline** — no child task capability at all. `inline.md` runs the rubrics as a self-audit and labels every verdict `self-audit (no independent judge)`.
+
+Registry setup, when you want it, is `bash .agents/skills/swe-workflow/setup.sh`: it registers the subagents for Markdown-agent harnesses and installs the optional pre-push hook. In a workspace managed by `harness`, `harness heal` additionally generates the Codex TOML projection.
 
 You don't need to run setup scripts manually: simply invoke `/swe-workflow` in your harness:
 ```text

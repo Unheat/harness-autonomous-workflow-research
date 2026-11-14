@@ -11,6 +11,7 @@ import { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps } fro
 import { listLocalMcps } from './mcp';
 import { listGlobalMcps } from './mcp-global';
 import { inspectPiProjection, inspectPiUserScope } from './services/pi-mcp-projection';
+import { inspectCodexSubagentProjection } from './services/subagent-projection';
 import { describePiTrustGaps, listExistingPiAgentDirs } from './services/pi-harness-trust';
 import { syncHarnessProjections } from './services/harness-sync-service';
 import type { AuditResult, AuditIssue } from './types';
@@ -223,6 +224,13 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
         }
       }
     } catch {}
+  }
+
+  // 10. Audit the Codex subagent projection: Codex reads TOML, so Markdown agents are invisible
+  // there and a `.codex/agents` symlink reports nothing at all.
+  const codexAgents = await inspectCodexSubagentProjection(root);
+  for (const message of codexAgents.issues) {
+    issues.push({ severity: 'warning', message });
   }
 
   return {

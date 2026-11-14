@@ -6,9 +6,14 @@
 #
 # What it does:
 #   1. Verifies workspace root and tools (git, bun/npm, rg).
-#   2. Registers subagents into .agent/agents/ and .agents/subagents/ for DSH, ZCode, and Claude.
+#   2. Installs the canonical subagents into .agent/agents/ (plus copies in .claude/agents/).
+#      Markdown-agent harnesses (Claude Code, ZCode, Cursor, OpenCode) discover them through their
+#      own adapter links; DSH needs the `dsh-subagents` plugin and a copy under ~/.dsh/agents.
 #   3. Scaffolds cross-harness symlinks (.dsh/skills, .claude/skills, .cursor/skills).
 #   4. Installs the universal pre-push git hook (.git/hooks/pre-push).
+#
+# Codex is NOT covered: it reads generated *.toml under .codex/agents. Run `harness heal` in a
+# workspace managed by the harness manager, or let swe-workflow run in manual mode (manual.md).
 
 set -euo pipefail
 

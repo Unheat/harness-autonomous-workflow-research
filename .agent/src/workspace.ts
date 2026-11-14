@@ -4,6 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import type { WorkspacePaths, InitWorkspaceResult } from './types';
 import { syncPiProjectMcps } from './services/pi-mcp-projection';
+import { syncCodexSubagentProjection } from './services/subagent-projection';
 
 export interface AdapterSymlinkDef {
   link: string;
@@ -26,7 +27,8 @@ export interface GeneratedProjectionDef {
 
 export const GENERATED_PROJECTION_FILES: GeneratedProjectionDef[] = [
   { path: '.dsh/mcp.json', keepPhysicalFile: false, reason: 'DSH toolbox double-mounts raw MCP tools' },
-  { path: '.pi/mcp.json', keepPhysicalFile: true, reason: 'pi reads a generated projection, not the hub' }
+  { path: '.pi/mcp.json', keepPhysicalFile: true, reason: 'pi reads a generated projection, not the hub' },
+  { path: '.codex/agents', keepPhysicalFile: true, reason: 'Codex reads TOML agent files, not Markdown' }
 ];
 
 /**
@@ -45,11 +47,11 @@ export const ADAPTER_SYMLINKS: AdapterSymlinkDef[] = [
   { link: '.codex/skills', target: '../.agents/skills' },
   { link: '.opencode/skills', target: '../.agents/skills' },
 
-  // Subagents adapters
+  // Subagents adapters (Markdown-agent harnesses). Codex is absent on purpose: it reads
+  // generated TOML under `.codex/agents` and would ignore every Markdown link.
   { link: '.claude/agents', target: '../.agent/agents' },
   { link: '.zcode/agents', target: '../.agent/agents' },
   { link: '.cursor/agents', target: '../.agent/agents' },
-  { link: '.codex/agents', target: '../.agent/agents' },
   { link: '.dsh/agents', target: '../.agent/agents' },
   { link: '.opencode/agents', target: '../.agent/agents' },
 
@@ -108,6 +110,11 @@ export async function reconcileWorkspaceAdapters(root: string): Promise<string[]
     await fsp.unlink(full);
     actions.push(`Pruned poisonous ${projection.path} adapter (${projection.reason})`);
   }
+
+  // Codex needs generated TOML, so the subagent projection is refreshed from the same canonical
+  // Markdown definitions every other harness links to.
+  const codex = await syncCodexSubagentProjection(root);
+  actions.push(...codex.actions);
 
   return actions;
 }

@@ -11,6 +11,21 @@ A disciplined, reproducible software engineering workflow for coding agents. It 
 
 ---
 
+## Mode Selection
+
+Three modes, one contract. The phases below are the contract; the two mode files only change **how a reviewer is dispatched**. Detect the runtime, then read at most one mode file.
+
+Do not infer the harness from which folders exist in the repo: a repo routinely contains `.claude/`, `.codex/`, `.cursor/` and `.dsh/` at once, while running on only one of them. Only the live runtime counts.
+
+1. User said **"inline"** or **"full-manual"** → `inline.md`.
+2. `judge-plan` and `judge-pr` are **registered subagents** — they appear in the harness's agent list, or the harness lets you invoke them by name without pasting a prompt → **registry mode**: run the phases in this file as written.
+3. The harness can spawn a **child task/agent** but has no registry entry for them (`Task`, `Agent`, `task`, `spawn_agent`, Codex subagents, DSH `agent_*`, or DeepAI Code `orchestrator_capabilities.canRunChildTask`) → **manual mode** → read `manual.md`.
+4. Otherwise (no child-task capability at all) → read `inline.md`.
+
+State the mode in your first update and in the evidence report: `mode=registry|manual|inline`. Never claim an independent judge ran when the mode was `inline`.
+
+---
+
 ## Core Invariants: Karpathy's 4 Principles
 
 Derived from Andrej Karpathy's analysis of LLM coding failure modes. These 4 rules govern every phase:
@@ -55,12 +70,14 @@ Derived from Andrej Karpathy's analysis of LLM coding failure modes. These 4 rul
 
 Before writing any code or tests, discover the local repository's invariants:
 
-0. **Self-Bootstrapping Preflight (Zero-Config Standalone Setup)**:
-   If secondary subagents (`judge-plan`, `judge-pr`, `explore-code`, `research`) are not yet registered in the active harness agent directories (`.agent/agents/` or `.claude/agents/`), run the self-contained setup script:
+0. **Self-Bootstrapping Preflight (registry mode only)**:
+   Only when mode selection resolved to **registry** intent, register the reviewer subagents once via the bundled installer:
    ```bash
    bash .agents/skills/swe-workflow/setup.sh 2>/dev/null || true
    ```
-   *(Automatically registers the 4 subagents for cross-harness discovery and sets up the universal pre-push hook. Enables swe-workflow to run as a 100% standalone skill in any repository).*
+   It registers the 4 subagents for Markdown-agent harnesses (Claude Code, ZCode, Cursor, OpenCode, and DSH when the `dsh-subagents` plugin is installed) and installs the pre-push hook. **Codex is not covered** — it reads `*.toml` under `.codex/agents/`, so either run `harness heal` in a workspace managed by the harness manager, or stay in manual mode.
+
+   In manual/inline mode, skip this step entirely: it writes agent files that your harness will never read.
 
 1. **Discover Repository Guidelines & Non-Code Obligations**:
    *Every repository defines its own rules, contribution protocols, and deliverables. Common filenames below are illustrative examples, NOT an exhaustive list.*
@@ -129,7 +146,8 @@ Before writing any code or tests, discover the local repository's invariants:
      - *Mandatory Non-Code Deliverables*: Specific items required by repo rules (e.g. `SKILL.md` update, docs update, `whatsnew/` entry, cheatsheet regen).
      - *Recorded Deviations*: Any repo rule explicitly not applicable to this task, with justification.
 2. **Invoke `judge-plan` Subagent**:
-   - Dispatch `judge-plan` (1-turn read-only reviewer) passing:
+   - **Dispatch**: registry mode → invoke the registered `judge-plan` agent by name. Manual mode → follow `manual.md` §Judge dispatch, which passes the agent body as the system prompt because no registry entry supplies it. Inline mode → `inline.md` self-audit.
+   - Pass (1-turn read-only reviewer):
      - `plan.md` content
      - Reproduction evidence (F2P Red test command and output)
      - **Discovered Repository Policy Paths & Extracted Obligations** (pass the exact file paths and obligations discovered in Phase 0 so `judge-plan` can read them directly without burning tokens re-scanning the workspace).
@@ -175,7 +193,8 @@ Before writing any code or tests, discover the local repository's invariants:
      - Eliminate cosmetic reformatting or unrelated whitespace churn.
      - Confirm all mandatory repo deliverables from `plan.md` (docs, changelog/whatsnew, codegen, sync files) are implemented.
 2. **Invoke `judge-pr` Subagent**:
-   - Dispatch `judge-pr` (1-turn read-only reviewer) passing:
+   - **Dispatch**: same rule as `judge-plan` (registry by name; manual via `manual.md`; inline self-audit, labelled as such).
+   - Pass (1-turn read-only reviewer):
      - Uncommitted and committed branch diff
      - Draft PR description & checklist
      - Verified test evidence (F2P Green test output and P2P suite results)

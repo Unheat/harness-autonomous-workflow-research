@@ -99,18 +99,25 @@ Every cell is one of: **native** (harness reads the hub directly, no adapter), *
 |---|---|---|---|
 | Claude Code | link `.claude/skills` | link `.claude/agents` | native `.mcp.json` |
 | Cursor | link `.cursor/skills` | link `.cursor/agents` | link `.cursor/mcp.json` |
-| Codex | link `.codex/skills` | link `.codex/agents` | `~/.codex/config.toml` |
+| Codex | link `.codex/skills` | **projection** `.codex/agents/*.toml` (Codex does not read Markdown agents) | `~/.codex/config.toml` |
 | OpenCode | link `.opencode/skills` | link `.opencode/agents` | `~/.config/opencode/opencode.json` |
 | ZCode | **native** `.agents/skills` (adapter pruned) | link `.zcode/agents` | `~/.zcode/cli/config.json` (user scope store) |
-| DeepSeek Harness (DSH) | link `.dsh/skills` | link `.dsh/agents` | **projection** `cordis.patch.yml` |
+| DeepSeek Harness (DSH) | link `.dsh/skills` | link `.dsh/agents`, but only the `dsh-subagents` plugin reads it — and it reads `$DSH_HOME/agents` (global) only | **projection** `cordis.patch.yml` |
 | pi / pi-like | **native** `.agents/skills` (user + ancestors, trust-gated) | **unsupported** — no `.pi/agents`; subagents arrive through the host's own delegation | **projection** `<workspace>/.pi/mcp.json` + `<agentDir>/mcp.json` |
 
-Two rules that follow from the matrix:
+Three rules that follow from the matrix:
 
 1. A harness that discovers a hub location natively gets its adapter **pruned**, not created
    (`NATIVE_SKILL_DISCOVERY_HARNESSES`) — otherwise the same skills appear twice in the prompt.
 2. An **unsupported** cell stays empty on purpose. Writing `.pi/agents` would be cargo cult: pi never reads
    it, so the files would look configured while being invisible at runtime.
+3. A dialect difference is a **projection**, never a link. Codex is the live example: its agents are TOML,
+   so `.codex/agents/*.toml` is generated from `.agent/agents/*.md` by `syncCodexSubagentProjection`, and a
+   Markdown link there is pruned as poisonous (`harness doctor` reports it).
+
+Consumers that need reviewers on a harness with no registry do not wait for the manager: `swe-workflow`
+ships `manual.md` (prompt-only dispatch — agent body as system prompt, brief appended) and `inline.md`
+(no child tasks, verdicts labelled `self-audit (no independent judge)`).
 
 Detailed pi trust semantics: [`docs/solutions/pi-like-harness-projection.md`](solutions/pi-like-harness-projection.md).
 

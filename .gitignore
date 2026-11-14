@@ -58,3 +58,6 @@ global-configs/
 
 # Documentation & Guides
 speckit-guide.md
+
+# Generated Codex subagent projection (harness heal rewrites it from .agent/agents)
+.codex/agents/

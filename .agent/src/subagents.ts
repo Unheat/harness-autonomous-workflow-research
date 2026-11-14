@@ -4,10 +4,8 @@ import path from 'node:path';
 import os from 'node:os';
 import type { SubagentInfo } from './types';
 
-function parseFrontmatter(content: string): Record<string, any> {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return {};
-  const lines = match[1].split('\n');
+function parseFrontmatterBlock(block: string): Record<string, any> {
+  const lines = block.split('\n');
   const result: Record<string, any> = {};
   let currentKey = '';
   let isArray = false;
@@ -35,6 +33,27 @@ function parseFrontmatter(content: string): Record<string, any> {
     }
   }
   return result;
+}
+
+function parseFrontmatter(content: string): Record<string, any> {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return {};
+  return parseFrontmatterBlock(match[1]);
+}
+
+/**
+ * Splits a canonical agent file into its frontmatter fields and its prompt body.
+ *
+ * The body is what a harness injects as the subagent's system prompt, so projections must
+ * carry it verbatim; only the frontmatter is rewritten into another harness dialect.
+ *
+ * @param content Raw Markdown content of an agent definition.
+ * @returns Parsed frontmatter attributes and the body that follows the closing fence.
+ */
+export function splitSubagentDocument(content: string): { attrs: Record<string, any>; body: string } {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+  if (!match) return { attrs: {}, body: content };
+  return { attrs: parseFrontmatterBlock(match[1]), body: content.slice(match[0].length) };
 }
 
 function parseToolList(val: any): string[] {

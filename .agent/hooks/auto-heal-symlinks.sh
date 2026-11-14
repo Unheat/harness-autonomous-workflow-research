@@ -26,9 +26,16 @@ repair_link() {
 for harness in .claude .cursor .dsh .codex .opencode; do
     repair_link "$harness/skills" ../.agents/skills
 done
-for harness in .claude .zcode .cursor .codex .dsh .opencode; do
+# Codex is absent on purpose: it reads generated TOML under .codex/agents, never Markdown.
+for harness in .claude .zcode .cursor .dsh .opencode; do
     repair_link "$harness/agents" ../.agent/agents
 done
+
+# A Markdown link there is poisonous: Codex would ignore it while it looks configured.
+if [ -L .codex/agents ]; then
+    rm -- .codex/agents
+    printf '[Auto-Heal] Pruned .codex/agents link (run `harness heal` to generate Codex TOML)\n'
+fi
 if [ -f .mcp.json ]; then
     for harness in .agents .cursor; do
         repair_link "$harness/mcp.json" ../.mcp.json
