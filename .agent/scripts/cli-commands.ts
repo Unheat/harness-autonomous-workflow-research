@@ -11,6 +11,7 @@ import { syncHarnessProjections } from '../src/services/harness-sync-service';
 import { toggleSubagentTokenShield, deleteSubagentFile, findSubagentPath } from '../src/services/subagent-service';
 import { readConfigFile, resolveConfigPath, type ConfigTarget } from '../src/services/config-service';
 import { healWorkspace, cleanGlobal } from '../src/doctor';
+import { inspectSkillLoadability, resolveSkillDir } from '../src/services/skill-loadability';
 import { trustProject, listTrust, type TrustActionResult } from '../src/services/harness-trust';
 import { printStatus, printCatalog, runDoctor, printHelp, printSubagents } from '../src/cli-printers';
 
@@ -104,6 +105,23 @@ function printTrustResults(results: TrustActionResult[]): void {
   if (failed) console.log(colorize('\n⚠️  Some harness configs failed; inspect the messages above.', COLORS.YELLOW));
 }
 
+/**
+ * Reports what will stop a just-linked skill from appearing in a harness, and reminds the user that
+ * a harness scans skill locations once per session, so an open thread keeps its old skill list.
+ */
+function reportSkillActivation(root: string, skillName: string): void {
+  const skillDir = resolveSkillDir(skillName, root);
+  const health = skillDir ? inspectSkillLoadability(skillDir) : null;
+  if (health && !health.loadable) {
+    console.log(colorize(`  ⚠️  No harness can load this skill: ${health.reason}. Fix its SKILL.md frontmatter to make it loadable.`, COLORS.YELLOW));
+    return;
+  }
+  for (const warning of health?.warnings ?? []) {
+    console.log(colorize(`  ⚠️  ${warning}.`, COLORS.YELLOW));
+  }
+  console.log(colorize('  ↳ Start a new session/thread in each harness so it rescans skills; open ones keep their old list.', COLORS.DIM));
+}
+
 async function handleSkillCommand(args: string[], root: string): Promise<void> {
   const sub = (args[0] || '').toLowerCase();
   const target = args[1];
@@ -127,6 +145,7 @@ async function handleSkillCommand(args: string[], root: string): Promise<void> {
   } else if (['add', 'on', 'enable'].includes(sub) && target) {
     const res = await addSkill(root, target);
     console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));
+    if (res.success) reportSkillActivation(root, target);
   } else if (['remove', 'rm', 'off', 'disable'].includes(sub) && target) {
     const res = await removeSkill(root, target);
     console.log(colorize(res.message, res.success ? COLORS.GREEN : COLORS.YELLOW));

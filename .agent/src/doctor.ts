@@ -6,6 +6,7 @@ import { GLOBAL_ZCODE_CONFIG, CLAUDE_MANAGED_MCP_CONFIG } from './config';
 import { ensureWorkspaceDirs, ADAPTER_SYMLINKS, reconcileWorkspaceAdapters, GENERATED_PROJECTION_FILES } from './workspace';
 import { ensureSkillInvocable } from './catalog';
 import { listGlobalActiveSkills } from './skills-global';
+import { inspectSkillLoadability } from './services/skill-loadability';
 import { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps } from './clean-global';
 import { listLocalMcps } from './mcp';
 import { listGlobalMcps } from './mcp-global';
@@ -98,7 +99,32 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     } catch {}
   }
 
-  // 3. Audit global MCP shadowing and unmigrated harness MCP configs
+  // 3. Audit skills the harnesses will silently refuse to load (.agents/skills links, global scope)
+  const skillDirsToAudit: string[] = [];
+  if (fs.existsSync(skillsDir)) {
+    const entries = await fsp.readdir(skillsDir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (entry.isDirectory() || entry.isSymbolicLink()) skillDirsToAudit.push(path.join(skillsDir, entry.name));
+    }
+  }
+  for (const skill of globalActive) skillDirsToAudit.push(path.dirname(skill.path));
+  for (const skillDir of skillDirsToAudit) {
+    const health = inspectSkillLoadability(skillDir);
+    const skillName = path.basename(skillDir);
+    if (!health.loadable) {
+      issues.push({
+        severity: 'error',
+        message: `Skill "${skillName}" is installed but no harness can load it: ${health.reason}. Fix SKILL.md frontmatter to make it visible.`
+      });
+    } else if (health.warnings.length > 0) {
+      issues.push({
+        severity: 'warning',
+        message: `Skill "${skillName}" deviates from the Agent Skills spec: ${health.warnings.join('; ')}.`
+      });
+    }
+  }
+
+  // 4. Audit global MCP shadowing and unmigrated harness MCP configs
   const unmigratedMcps = await discoverUnmigratedHarnessMcps();
   for (const item of unmigratedMcps) {
     const srvNames = Object.keys(item.servers).join(', ');
@@ -132,7 +158,7 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     } catch {}
   }
 
-  // 4. Audit poisonous harness projections (.dsh/mcp.json, symlinked .pi/mcp.json)
+  // 5. Audit poisonous harness projections (.dsh/mcp.json, symlinked .pi/mcp.json)
   for (const projection of GENERATED_PROJECTION_FILES) {
     const full = path.join(root, projection.path);
     const stat = await fsp.lstat(full).catch(() => null);
@@ -144,7 +170,7 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     });
   }
 
-  // 5. Audit the pi-like harness projection against the hub declarations
+  // 6. Audit the pi-like harness projection against the hub declarations
   const localMcps = await listLocalMcps(root);
   const piProjection = inspectPiProjection(root, localMcps);
   if (piProjection.state === 'missing' || piProjection.state === 'stale') {
@@ -164,7 +190,7 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     issues.push({ severity: 'warning', message: warning });
   }
 
-  // 6. Audit user-scope projections: `<agentDir>/mcp.json` must mirror the manager's global scope
+  // 7. Audit user-scope projections: `<agentDir>/mcp.json` must mirror the manager's global scope
   const globalMcps = await listGlobalMcps();
   for (const agentDir of listExistingPiAgentDirs()) {
     const userScope = inspectPiUserScope(agentDir, globalMcps);
@@ -176,11 +202,11 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
     }
   }
 
-  // 7. Audit administrator-level harness policy that silently disables the hub
+  // 8. Audit administrator-level harness policy that silently disables the hub
   const claudePolicyWarning = checkClaudeManagedMcpPolicy();
   if (claudePolicyWarning) issues.push({ severity: 'warning', message: claudePolicyWarning });
 
-  // 8. Audit subagent token shields
+  // 9. Audit subagent token shields
   const subagentsDir = path.join(root, '.agent', 'agents');
   if (fs.existsSync(subagentsDir)) {
     try {

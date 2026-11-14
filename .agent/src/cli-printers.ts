@@ -6,6 +6,7 @@ import { getEffectiveMcpList } from './mcp-global';
 import { listAllSubagents } from './subagents';
 import { auditWorkspace } from './doctor';
 import { inspectPiProjection } from './services/pi-mcp-projection';
+import { inspectSkillLoadability, resolveSkillDir } from './services/skill-loadability';
 import { describePiTrustGaps } from './services/pi-harness-trust';
 import { listLocalMcps } from './mcp';
 
@@ -27,6 +28,16 @@ export async function printStatus(workspaceRoot: string): Promise<void> {
       if (s.isDormant) tag = colorize('[Project: dormant]', COLORS.DIM);
       else if (s.scope === 'global') tag = colorize('[Global: active]', COLORS.MAGENTA);
       else if (s.isLink) tag = colorize('[Project: linked]', COLORS.GREEN);
+
+      // A linked skill a harness refuses to parse is not active in practice, so never report it as healthy.
+      if (!s.isDormant) {
+        const skillDir = resolveSkillDir(s.name, root);
+        const health = skillDir ? inspectSkillLoadability(skillDir) : null;
+        if (health && !health.loadable) {
+          tag = `${tag} ${colorize(`⚠️  won't load: ${health.reason}`, COLORS.YELLOW)}`;
+        }
+      }
+
       console.log(`  • ${COLORS.BOLD}${s.name.padEnd(25)}${COLORS.RESET} ${tag}`);
     }
   } else {
