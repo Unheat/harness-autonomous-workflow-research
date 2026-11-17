@@ -61,3 +61,6 @@ speckit-guide.md
 
 # Generated Codex subagent projection (harness heal rewrites it from .agent/agents)
 .codex/agents/
+
+# Generated OpenCode MCP projection (harness heal rewrites it from .mcp.json)
+.opencode/opencode.json

@@ -11,6 +11,7 @@ import { cleanGlobal, discoverUnmigratedHarnessMcps, centralizeHarnessMcps } fro
 import { listLocalMcps } from './mcp';
 import { listGlobalMcps } from './mcp-global';
 import { inspectPiProjection, inspectPiUserScope } from './services/pi-mcp-projection';
+import { inspectOpencodeProjection } from './services/opencode-mcp-projection';
 import { inspectCodexSubagentProjection } from './services/subagent-projection';
 import { describePiTrustGaps, listExistingPiAgentDirs } from './services/pi-harness-trust';
 import { syncHarnessProjections } from './services/harness-sync-service';
@@ -180,6 +181,20 @@ export async function auditWorkspace(workspaceRoot: string): Promise<AuditResult
       message: `pi-like projection ${piProjection.path} is ${piProjection.state} (${piProjection.servers} server(s) expected). Run \`harness heal\` to regenerate.`
     });
   }
+  // 6b. Audit the OpenCode project projection against the same hub declarations
+  const opencodeProjection = inspectOpencodeProjection(root, localMcps);
+  if (opencodeProjection.state === 'blocked') {
+    issues.push({
+      severity: 'error',
+      message: `OpenCode projection ${opencodeProjection.path} is a symlink into the hub. Run \`harness heal\` to prune.`
+    });
+  } else if (opencodeProjection.state === 'missing' || opencodeProjection.state === 'stale') {
+    issues.push({
+      severity: 'warning',
+      message: `OpenCode projection ${opencodeProjection.path} is ${opencodeProjection.state} (${opencodeProjection.servers} server(s) expected). Run \`harness heal\` to regenerate.`
+    });
+  }
+
   for (const issue of piProjection.issues) {
     issues.push({
       severity: 'warning',

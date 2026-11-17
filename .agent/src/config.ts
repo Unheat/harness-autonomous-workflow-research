@@ -27,6 +27,12 @@ export const PI_PROJECT_CONFIG_DIR = '.pi';
 /** Project-scope MCP file basename inside {@link PI_PROJECT_CONFIG_DIR}. */
 export const PI_PROJECT_MCP_BASENAME = 'mcp.json';
 
+/** Project-scope config directory read by OpenCode 2 (`.opencode/opencode.json`). */
+export const OPENCODE_PROJECT_CONFIG_DIR = '.opencode';
+
+/** Generated OpenCode project config basename. */
+export const OPENCODE_PROJECT_CONFIG_BASENAME = 'opencode.json';
+
 /** Agent-directory basename holding per-harness trust decisions. */
 export const PI_TRUST_BASENAME = 'trust.json';
 

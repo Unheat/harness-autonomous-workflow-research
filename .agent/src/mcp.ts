@@ -5,6 +5,7 @@ import { getCatalogMcps } from './catalog';
 import { GLOBAL_CATALOG_DIR, GLOBAL_MCPS_FILE } from './config';
 import { syncDshProfileMcps } from './mcp-dsh';
 import { syncPiProjectMcps } from './services/pi-mcp-projection';
+import { syncOpencodeProjectMcps } from './services/opencode-mcp-projection';
 import type { McpServerConfig, OperationResult } from './types';
 
 function isValidName(name: string): boolean {
@@ -68,6 +69,9 @@ export async function saveLocalMcps(
 
   // Regenerate the pi-like harness projection (.pi/mcp.json) from the same source of truth
   await syncPiProjectMcps(workspaceRoot, mcpServers).catch(() => {});
+
+  // Project the same declarations into OpenCode's `mcp.servers` dialect
+  await syncOpencodeProjectMcps(workspaceRoot, mcpServers).catch(() => {});
 }
 
 /**

@@ -2,6 +2,7 @@ import { listLocalMcps } from '../mcp';
 import { listGlobalMcps } from '../mcp-global';
 import { syncDshProfileMcps } from '../mcp-dsh';
 import { syncPiProjectMcps, syncPiUserScopeMcps } from './pi-mcp-projection';
+import { syncOpencodeProjectMcps } from './opencode-mcp-projection';
 
 /**
  * Harness projection sync.
@@ -13,6 +14,7 @@ import { syncPiProjectMcps, syncPiUserScopeMcps } from './pi-mcp-projection';
  * - DeepSeek Harness -> `cordis.patch.yml` (user scope)
  * - pi-like harnesses -> `<agentDir>/mcp.json` (user scope) and `<workspace>/.pi/mcp.json` (project
  *   scope)
+ * - OpenCode 2 -> `<workspace>/.opencode/opencode.json` (project scope, `mcp.servers`)
  *
  * `harness mcp sync` runs exactly this, so "what the manager shows" and "what a harness loads"
  * cannot diverge without a visible report.
@@ -52,6 +54,13 @@ export async function syncHarnessProjections(workspaceRoot: string): Promise<Har
   }
   for (const issue of project.issues) {
     warnings.push(`pi-like harness would reject MCP server "${issue.server}": ${issue.reason}`);
+  }
+
+  const opencode = await syncOpencodeProjectMcps(workspaceRoot, localServers);
+  if (opencode.state === 'blocked') {
+    warnings.push(`${opencode.path} is a symlink into the hub; run \`harness heal\` to prune it`);
+  } else if (opencode.changed && opencode.servers > 0) {
+    actions.push(`Projected ${opencode.servers} workspace server(s) into ${opencode.path}`);
   }
 
   for (const userScope of await syncPiUserScopeMcps(globalServers)) {
