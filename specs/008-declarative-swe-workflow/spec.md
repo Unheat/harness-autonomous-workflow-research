@@ -7,15 +7,44 @@ resource-manager work, not this SWE lifecycle.
 
 ## Contract
 ```text
-Human / approved coordinator (queue, optional worktree)
-  ├─ main session: task A → same workflow → review-ready change A
-  └─ main session: task B → same workflow → review-ready change B
+Human / approved Orchestrator (queue, optional worktree)
+  ├─ worker A (worktree A): task A → same workflow → review-ready change A
+  └─ worker B (worktree B): task B → same workflow → review-ready change B
                                              ↓
                                       human review/merge
 ```
 One main engineer per workspace writes code/tests. Helpers gather evidence or judge;
-no mandatory implementer subagent. Coordinator choice must not alter core semantics.
+no mandatory implementer subagent. Orchestrator choice must not alter core semantics.
 Prompt guidance is portable; native tools/hooks/permissions require harness mappings.
+
+## Vocabulary (two layers, one name each)
+
+```text
+Orchestrator  (outer)  = dispatches tasks, provisions worktrees, fans out workers, merges lanes
+Worker        (inner)  = one `swe-workflow` run inside one worktree  == the finished artifact
+Helper        (leaf)   = read-only explore / research / judge subagent
+```
+
+Industry names are used as given, never invented: **orchestrator–workers** (Anthropic),
+**supervisor** (LangChain/LangGraph, AutoGen manager, AWS), **subagent**, **fan-out/fan-in**,
+**router** (classifies and dispatches one step; *not* a supervisor). Supervisor and worker are
+**roles**; the pattern is orchestrator–workers.
+
+Canonical prompt words — use these instead of synonyms:
+
+| Say | Means | Avoid |
+|---|---|---|
+| `orchestrate <goal>` | start an outer-layer run | SuperAgent, L0, CEO/PM, swarm |
+| `worker` / `lane` | one inner run bound to one worktree | L1, milestone lead |
+| `helper` | one read-only leaf subagent | L2, specialist leaf |
+| `fan out N` / `fan in` | spawn N workers / aggregate results | parallelize everything |
+| `gate` | `judge-plan` or `judge-pr` verdict | review-ish, check |
+| `brief` | the task packet handed to a worker/helper | prompt blob |
+| `escalate` | human tie-breaker while unattended | abort, restart |
+
+Disambiguation: **task** = unit of intent; **run** = one execution attempt; **lane** = a
+worktree slot; **verdict** = a gate result. One worktree per lane, never shared.
+Outer layer has no spec yet (see 014 Non-Goals); only this vocabulary is fixed.
 
 ---
 
@@ -74,7 +103,7 @@ Prompt guidance is portable; native tools/hooks/permissions require harness mapp
 > *Status: Architectural proposal for future integration. Current active milestone focuses strictly on the Core Workflow Engine and local worktrees.*
 
 In a fully autonomous unattended mode (e.g. background DSH SuperAgent queue or GitHub Issue webhook):
-- The coordinator intercepts new tickets/issues.
+- The Orchestrator intercepts new tickets/issues.
 - Provisions an isolated Git worktree: `git worktree add ../task-<id> -b feat/<slug>`.
 - Executes the core `swe-workflow` inside that worktree.
 - If a Human Tie-Breaker is triggered while unattended:

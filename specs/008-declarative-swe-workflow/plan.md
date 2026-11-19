@@ -1,7 +1,8 @@
 # Plan: Hands-on SWE workflow
 
 ## Ownership and entrypoint
-- Input coordinator owns intake, queue and optional worktree provisioning.
+- Orchestrator (outer layer) owns intake, queue, worktree provisioning and lane fan-out;
+  its vocabulary is fixed in `spec.md` → Vocabulary.
 - Main session in each workspace owns code/tests; load
   `.agents/skills/swe-workflow/SKILL.md`. No implementer subagent hop.
 - Delegate bounded discovery/research or independent review only when useful.

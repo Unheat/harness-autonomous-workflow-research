@@ -75,6 +75,7 @@ Enforcement is not invariant #5; it is what makes #2 true. It is measured by #2,
 ## Non-Goals
 
 - Worktree isolation, parallel fan-out, `run_workflow`/swarm dispatch (outer layer, separate spec).
+  Vocabulary for that layer is fixed in 008 → Vocabulary: Orchestrator / Worker / Helper.
 - A durable `PROJECT_STATE.md` (would be a second source of truth; if added, generated only).
 - A fifth judge criterion, or any rubric rewrite beyond FR-009's evidence requirement.
 - Replacing the harness trust flow or granting permissions on the user's behalf.

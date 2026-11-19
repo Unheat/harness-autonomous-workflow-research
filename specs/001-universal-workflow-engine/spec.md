@@ -10,7 +10,7 @@
 ## 1. System Vision & Architecture
 
 The **Universal Adaptive Workflow Engine** is a portable, cross-harness autonomous development system designed for DeepSeek Harness (DSH) and multi-agent coding environments. It provides:
-1. **2-Level Recursive Subagent Topology (Max Depth = 2)**: Level 0 (CEO/PM Orchestrator) $\to$ Level 1 (Worktree Milestone Lead) $\to$ Level 2 (Specialized Leaf Helpers).
+1. **2-Level Recursive Subagent Topology (Max Depth = 2)**: Level 0 (CEO/PM Orchestrator) $\to$ Level 1 (Worktree Milestone Lead) $\to$ Level 2 (Specialized Leaf Helpers). Legacy labels — canonical names are Orchestrator / Worker / Helper (see 008 → Vocabulary).
 2. **Cognitive Intent Router**: Evaluates task ambiguity to automatically switch between **Route A (CEO/PM Broad Discovery & Gaps Tracker)** and **Route B (Fast-Track Direct Execution)**.
 3. **Unified Fail-to-Pass (F2P) Lifecycle**: A single universal engineering cycle (`RED` $\to$ `Grounded Plan` $\to$ `GREEN` $\to$ `P2P Regression Gate`) with **Early Pruning Judges** (`judge-repro`, `judge-plan`, `judge-pr`).
 4. **Dynamic Project Scaffolding**: Archetype routing for SWE (code contracts, test suites) and Non-SWE (e.g. Game Design GDD, visual-judge, asset validators).
