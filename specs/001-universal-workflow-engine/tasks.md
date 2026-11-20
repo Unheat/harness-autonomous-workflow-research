@@ -66,7 +66,7 @@
 **Objective**: Fork Paperclip for the Web Dashboard Control Plane, equip Level 0 with CEO/PM system thinking, and connect to L1 worktrees.
 
 - [ ] T026 Fork `paperclipai/paperclip`, strip financial/cent-level budget overhead, and configure embedded database runtime
-- [ ] T027 Implement L0 CEO Cognitive Intent Router classifying goals into **Route A (CEO/PM Broad Discovery & Gaps Matrix)** or **Route B (Fast-Track)**
+- [ ] T027 Implement L0 CEO Cognitive Intent Router classifying goals into **Route A (CEO/PM Broad Discovery & Gaps Matrix)** or **Route B (Fast-Track)** — trigger superseded by 001 US2 Status note; only the gap-matrix deliverable is still a candidate.
 - [ ] T028 Implement Paperclip adapter enhancement: inject Git Worktree isolation (`.worktrees/`) and Token Shield (`disallowedTools: [Skill, Agent]`) into `claude_local` and `dsh_local`
 - [ ] T029 Implement Topological Dependency Sorting and Concurrency Throttling (`max_parallel_l1 = 2`, serial L2 helpers) in L0 coordinator
 - [ ] T030 Implement `workflow init [archetype]` dynamic scaffolding (supporting `swe`, `game-design`, and `research`)

@@ -41,6 +41,13 @@ As a developer issuing high-level product goals (e.g., "port an application like
 
 **Why this priority**: Relieves the human developer from having to manually perform system thinking, feature gap decomposition, and hand-holding for every sub-step.
 
+> **Status note (2026-11-19) — this story is unbuilt and partly superseded.** What survives: goal →
+> evidence-backed gap list → dependency order (proposed name: `survey`, see 008 → Vocabulary). Superseded:
+> the **Ambiguity Index ≥ 0.5** trigger (a magic number with no defined computation; 008 Requirement 2
+> routes proportionally by task kind instead) and the Paperclip-fork control plane (006 → 008). No spec
+> currently owns `docs/gaps.md` / `docs/target-parity.md`; 014 defers the whole outer layer to a separate
+> spec. Left here as a candidate for that spec — not as an active commitment.
+
 **Acceptance Scenarios**:
 1. **Given** a high-ambiguity or system-level prompt, **When** L0 inspects the goal, **Then** it selects Route A, creates `docs/gaps.md` and `docs/target-parity.md`, identifies unmentioned edge cases, and arranges milestones by topological dependency.
 2. **Given** a narrow bug fix or specific 1-file modification, **When** L0 inspects the goal, **Then** it selects Route B, skips heavy spec generation, and dispatches directly to an L1 TDD worktree.
