@@ -51,7 +51,7 @@ export async function discoverUnmigratedHarnessMcps(): Promise<UnmigratedHarness
     return Object.fromEntries(
       Object.entries(servers).filter(([name, cfg]) => {
         if (HARNESS_INTERNAL_SERVERS.has(name)) return false;
-        if (isHostManagedMcpEntry(cfg)) return false;
+        if (isHostManagedMcpEntry(cfg, name)) return false;
         return cfg && Object.keys(cfg).length > 0;
       })
     );

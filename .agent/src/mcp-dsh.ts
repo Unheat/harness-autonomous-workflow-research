@@ -108,7 +108,7 @@ export async function syncDshProfileMcps(
       if (cfg.enabled === false || (cfg as any).disabled === true) continue;
       // Another harness's installer already wired its own tool channel; projecting it here would
       // mount the same server twice and sign its documents with the wrong caller.
-      if (isHostManagedMcpEntry(cfg)) continue;
+      if (isHostManagedMcpEntry(cfg, name)) continue;
       mcpEntries.push(buildDshMcpEntry(name, cfg));
     }
 

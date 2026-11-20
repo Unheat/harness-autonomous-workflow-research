@@ -82,8 +82,11 @@ Rules:
 - A symlinked projection is poisonous: prune it, never write through it.
 - Harness trust is never granted by the manager — it belongs to the harness approval flow.
 - **Installer-owned artifacts are untouchable**: entries carrying a host-managed marker (e.g. `env.HINDSIGHT_MCP_HARNESS`)
-  and installer-written marker blocks are skipped by migration and cleanup (`isHostManagedMcpEntry`). Repair must never
-  break another tool's own wiring — see [`docs/solutions/hindsight-local-memory-wiring.md`](solutions/hindsight-local-memory-wiring.md).
+  or matching an installer rule (`HOST_MANAGED_MCP_RULES`: server name + path into that installer's own package, e.g.
+  `bili` → `…/billion-context/dist/mcp.js`) and installer-written marker blocks are skipped by migration, cleanup and
+  projection (`isHostManagedMcpEntry`). Repair must never break another tool's own wiring — see
+  [`docs/solutions/hindsight-local-memory-wiring.md`](solutions/hindsight-local-memory-wiring.md) and
+  [`docs/solutions/installer-owned-mcp-entries.md`](solutions/installer-owned-mcp-entries.md).
 - Two scopes, one owner: user scope is `~/.zcode/cli/config.json`, project scope is `.mcp.json`. Generated
   projections mirror both (`<agentDir>/mcp.json`, `<workspace>/.pi/mcp.json`), and `harness mcp sync` pushes the
   matrix non-destructively, so a hand-written harness file cannot drift.
