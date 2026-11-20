@@ -91,3 +91,41 @@ args = ["/Users/someone/.local/lib/node_modules/billion-context/dist/mcp.js"]
     }
   });
 });
+
+describe('global scope refuses to mutate installer-owned entries', () => {
+  test('rejects disable/remove for bili and keeps the installer entry intact', async () => {
+    const { disableGlobalMcp, removeGlobalMcp, getEffectiveMcpList } = await import('../.agent/src/mcp-global');
+
+    try {
+      await fsp.mkdir(path.dirname(GLOBAL_ZCODE_CONFIG), { recursive: true });
+      await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify({
+        mcp: {
+          servers: {
+            bili: { command: 'node', args: ['/opt/lib/node_modules/billion-context/dist/zcode/mcp-entry.js'] },
+            search2ai: { command: '/usr/local/bin/search2ai-mcp' }
+          }
+        }
+      }, null, 2), 'utf-8');
+
+      // The manager refuses, and names the real owner in the refusal.
+      const disabled = await disableGlobalMcp('bili');
+      const removed = await removeGlobalMcp('bili');
+      expect(disabled.success).toBe(false);
+      expect(removed.success).toBe(false);
+      expect(removed.message).toContain('bili plugin remove');
+
+      const after = JSON.parse(await fsp.readFile(GLOBAL_ZCODE_CONFIG, 'utf-8'));
+      expect(Object.keys(after.mcp.servers)).toEqual(['bili', 'search2ai']);
+
+      // The printer must be able to flag it instead of presenting it as a normal declaration.
+      const bili = (await getEffectiveMcpList(process.cwd())).find(entry => entry.name === 'bili');
+      expect(bili?.hostManaged).toBe(true);
+      expect(bili?.effectiveActive).toBe(true);
+
+      // A server the manager owns stays fully manageable next to it.
+      expect((await disableGlobalMcp('search2ai')).success).toBe(true);
+    } finally {
+      await fsp.writeFile(GLOBAL_ZCODE_CONFIG, JSON.stringify({ mcp: { servers: {} } }, null, 2), 'utf-8');
+    }
+  });
+});

@@ -5,6 +5,7 @@ import { listLocalMcps } from './mcp';
 import { getCatalogMcps } from './catalog';
 import { syncDshProfileMcps } from './mcp-dsh';
 import { syncPiUserScopeMcps } from './services/pi-mcp-projection';
+import { isHostManagedMcpEntry } from './services/host-managed';
 import type { McpServerConfig, OperationResult, McpScopeState, EffectiveMcpInfo } from './types';
 
 /**
@@ -46,6 +47,8 @@ export async function saveGlobalMcps(servers: Record<string, McpServerConfig>): 
  */
 export async function enableGlobalMcp(serverName: string): Promise<OperationResult> {
   const globalServers = await listGlobalMcps();
+  const owned = describeOwnership(serverName, globalServers[serverName]);
+  if (owned) return { success: false, message: owned };
   if (!(serverName in globalServers)) {
     const catalog = await getCatalogMcps();
     if (!(serverName in catalog)) {
@@ -66,6 +69,8 @@ export async function disableGlobalMcp(serverName: string): Promise<OperationRes
   if (!(serverName in globalServers)) {
     return { success: false, message: `Server "${serverName}" not in global config.` };
   }
+  const owned = describeOwnership(serverName, globalServers[serverName]);
+  if (owned) return { success: false, message: owned };
   globalServers[serverName].enabled = false;
   await saveGlobalMcps(globalServers);
   return { success: true, message: `Disabled MCP server "${serverName}" globally (User Scope).` };
@@ -80,9 +85,27 @@ export async function removeGlobalMcp(serverName: string): Promise<OperationResu
   if (!(serverName in globalServers)) {
     return { success: false, message: `Server "${serverName}" not configured globally.` };
   }
+  const owned = describeOwnership(serverName, globalServers[serverName]);
+  if (owned) return { success: false, message: owned };
   delete globalServers[serverName];
   await saveGlobalMcps(globalServers);
   return { success: true, message: `Removed "${serverName}" from global config. Workspaces can now manage it independently.` };
+}
+
+/**
+ * Explains why the manager must not mutate an installer-owned entry.
+ *
+ * Ownership is decided by `isHostManagedMcpEntry` (env marker, or installer name + path into that
+ * installer's own package). Toggling or removing such an entry would desynchronise it from the
+ * installer that rewrites it on upgrade, so the manager refuses and names the real owner.
+ *
+ * @param serverName Server name as declared in the harness config.
+ * @param config Parsed server config, when present.
+ * @returns A refusal message, or null when the entry is the manager's to mutate.
+ */
+function describeOwnership(serverName: string, config?: McpServerConfig): string | null {
+  if (!isHostManagedMcpEntry(config, serverName)) return null;
+  return `Server "${serverName}" is owned by its installer, not by the manager. Use that installer's own command (for billion-context: \`bili plugin remove <host>\`) so its routing and hooks are removed together.`;
 }
 
 /**
@@ -133,6 +156,9 @@ export async function getEffectiveMcpList(workspaceRoot: string): Promise<Effect
     }
 
     const config = catalogMcps[name] || globalMcps[name] || localMcps[name] || { command: '' };
+    // Report installer-owned entries instead of hiding them, but mark them so printers, migration
+    // and deletion treat them as another tool's wiring rather than the manager's declaration.
+    const hostManaged = isHostManagedMcpEntry(globalMcps[name] || localMcps[name], name);
 
     return {
       name,
@@ -142,6 +168,7 @@ export async function getEffectiveMcpList(workspaceRoot: string): Promise<Effect
       workspaceState,
       isShadowed,
       shadowReason,
+      hostManaged,
       config
     };
   });

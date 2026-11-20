@@ -95,6 +95,11 @@ export interface EffectiveMcpInfo {
   workspaceState: McpScopeState;
   isShadowed: boolean;
   shadowReason?: string;
+  /**
+   * True when another installer owns this entry (e.g. `bili`). The manager reports it but must not
+   * migrate, project or delete it: the installer rewrites the entry on upgrade.
+   */
+  hostManaged?: boolean;
   config: McpServerConfig;
 }
 

@@ -67,6 +67,11 @@ export async function printStatus(workspaceRoot: string): Promise<void> {
         statusTag = `${colorize('OFF', COLORS.YELLOW)} ${COLORS.DIM}${scope}${COLORS.RESET}`;
       }
 
+      // Installer-owned entries are reported, never managed: their owner rewrites them on upgrade.
+      if (item.hostManaged) {
+        statusTag += ` ${COLORS.DIM}[Installer-owned — manage via that installer]${COLORS.RESET}`;
+      }
+
       console.log(`  • ${COLORS.BOLD}${item.name.padEnd(18)}${COLORS.RESET} ${statusTag}`);
     }
   } else {
