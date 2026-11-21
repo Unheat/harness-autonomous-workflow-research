@@ -72,7 +72,7 @@ Hindsight's installer owns its artifacts; the manager must never migrate or prun
 
 | Artifact | Identification | Rule |
 |---|---|---|
-| MCP entries it writes (`~/.cursor/mcp.json`, `~/.codex/config.toml`, `~/.gemini/config/mcp_config.json`) | `env.HINDSIGHT_MCP_HARNESS` present | skipped by `isHostManagedMcpEntry()` in `clean-global.ts` — never counted as an unmigrated declaration |
+| MCP entries it writes (`~/.zcode/cli/config.json` → `mcp.servers.hindsight`, `~/.cursor/mcp.json`, `~/.codex/config.toml`, `~/.gemini/config/mcp_config.json`) | `env.HINDSIGHT_MCP_HARNESS` present | skipped by `isHostManagedMcpEntry()` in `clean-global.ts` — never counted as an unmigrated declaration |
 | DSH plugin row | block wrapped in `# HINDSIGHT_CODING_AGENTS_DSH_START/END` in `~/.dsh/cordis.patch.yml` | not in the profile file we manage; marker block must be preserved verbatim if we ever write there |
 | Skill directories | physical dirs at `~/.agents/skills/hindsight-coding-agent`, `~/.claude/skills/…`, `~/.zcode/skills/…`, `~/.cursor/skills/…` | the installer copies a real directory and fails on a symlink (`ERR_FS_CP_DIR_TO_NON_DIR`); the catalog symlink for **this one skill** was retired so the installer owns it |
 
@@ -84,6 +84,19 @@ Detection is by marker, not by server name: a user's own server called `hindsigh
 (`harness mcp rm hindsight`) and its env marker was dropped from `~/.agents/catalog/mcps.json`, so the catalog
 definition survives as a label-free **fallback** for hosts with no native wiring. Per-harness labels now come from
 the installer's own entries (`cursor-cli`, `codex`, …), which are correct by construction.
+
+**Stale second copies in `~/.mcp.json` (home) — found and removed 2026-11-21.** An old-scheme
+`install zcode` had written the hindsight MCP there; the published contract for ZCode is three hooks plus
+`mcp.servers.hindsight`, both in `~/.zcode/cli/config.json`, with the companion skill in `~/.zcode/skills`. With
+that entry sitting disabled, every ZCode session ran hooks-only while the session banner still advertised the
+`hindsight_*` tools — 0 of 424 recorded ZCode turns ever called one. Re-running `install zcode` (v0.8.7) merged
+the server into `~/.zcode/cli/config.json` and installed the skill at `~/.zcode/skills/hindsight-coding-agent`;
+the home-file copies (the installer-flipped hindsight duplicate plus a disabled `search2ai` duplicate of the
+workspace entry) were deleted, leaving `~/.mcp.json` with an empty `mcpServers`. The tools registered in the
+same ZCode session with no app restart, and `hindsight_diagnose` resolved `harness: zcode` against bank
+`coding-agent::workflow` — ZCode picks up `mcp.servers` changes live. Two enabled hindsight declarations would
+have meant the second-connection duplicate this section removed the hub entry to avoid; the home file must stay
+empty.
 
 ---
 
