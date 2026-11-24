@@ -29,7 +29,7 @@ No registry publish/approval needed for self-use; it installs from GitHub.
 
 ```bash
 # Install into current workspace
-npx skills add Unheat/harness-autonomous-workflow-research --skill swe-workflow -y
+npx skills add Unheat/swe-workflow --skill swe-workflow -y
 
 # Bootstrap adapters/subagents
 bash .agents/skills/swe-workflow/setup.sh
@@ -50,11 +50,11 @@ Good when you want full control or no Skills CLI.
 
 ```bash
 # from a fresh canonical checkout
-git clone https://github.com/Unheat/harness-autonomous-workflow-research.git
-# or: git -C /path/to/harness-autonomous-workflow-research pull
+git clone https://github.com/Unheat/swe-workflow.git
+# or: git -C /path/to/swe-workflow pull
 
 mkdir -p /path/to/target-workspace/.agents/skills
-cp -r /path/to/harness-autonomous-workflow-research/.agents/skills/swe-workflow \
+cp -r /path/to/swe-workflow/skills/swe-workflow \
       /path/to/target-workspace/.agents/skills/
 
 cd /path/to/target-workspace
@@ -67,7 +67,7 @@ Use when many local workspaces should track one local checkout.
 
 ```bash
 mkdir -p /path/to/target-workspace/.agents/skills
-ln -s /path/to/harness-autonomous-workflow-research/.agents/skills/swe-workflow \
+ln -s /path/to/swe-workflow/skills/swe-workflow \
       /path/to/target-workspace/.agents/skills/swe-workflow
 cd /path/to/target-workspace
 bash .agents/skills/swe-workflow/setup.sh
@@ -75,14 +75,47 @@ bash .agents/skills/swe-workflow/setup.sh
 
 Tradeoff: brittle across machines/CI; changes are live immediately.
 
-### Option D: Git submodule/subtree (version-pinned)
+### Option D: Harness catalog link (recommended on this machine)
+
+The harness manager owns the machine catalog; the workspace gets a symlink instead of a copy.
+Point the catalog entry at your local clone once, then link any workspace:
+
+```bash
+ln -sfn /path/to/swe-workflow/skills/swe-workflow ~/.agents/catalog/skills/swe-workflow
+ln -sfn /path/to/swe-workflow/skills/judge-plan   ~/.agents/catalog/skills/judge-plan
+ln -sfn /path/to/swe-workflow/skills/judge-pr     ~/.agents/catalog/skills/judge-pr
+
+cd /path/to/target-workspace
+harness skill add swe-workflow   # .agents/skills/swe-workflow -> catalog -> your clone
+harness skill add judge-plan
+harness skill add judge-pr
+bash .agents/skills/swe-workflow/setup.sh
+```
+
+Result: one editable copy. Edits or `git pull` in the clone are visible in every linked workspace
+immediately; no reinstall and no second copy to drift. `harness status` and `harness catalog` show
+the links.
+
+### Option E: Git submodule/subtree (version-pinned)
 
 Use when you want reproducible, git-tracked skill versions. More ceremony, but explicit.
 
+## What updates propagate, and what does not
+
+| Change | Reaches other local workspaces | Reaches other machines |
+|---|---|---|
+| Edit / `git pull` in the clone (catalog or symlink install) | Immediately | No — each machine pulls its own copy |
+| `git push` to GitHub | No | No — it is the shared source, not a deployment |
+| `setup.sh` re-run | Refreshes agent copies, adapter links, pre-push hook | Only on that machine |
+
+Agents (`.agent/agents/*.md`) and the pre-push hook (`.git/hooks/pre-push`) are **copies**, not links,
+so re-run `setup.sh` after pulling a change that touches them. Skill bodies are linked (catalog/symlink
+installs) or copied (Skills CLI/vendor installs).
+
 ## Recommended self-use workflow
 
-1. **Pick one canonical source.** Avoid maintaining the same skill in multiple independent repos unless one is an intentional mirror.
-2. **Install via Skills CLI or copy from canonical.** For this repo: `Unheat/harness-autonomous-workflow-research`, skill `swe-workflow`.
+1. **Pick one canonical source.** This suite's canonical source is `Unheat/swe-workflow`; local workspaces should link to one checkout of it, never keep independent copies.
+2. **Install via catalog link, Skills CLI, or copy from canonical** (Options A–D above).
 3. **Run `setup.sh` after install/update.** This registers subagents and refreshes adapter links.
 4. **Verify mode at runtime.** swe-workflow reports `mode=registry|manual|inline`; registry mode means harness-discoverable judges are available.
 5. **For Codex-managed workspaces, run `harness heal`** if you need TOML agent projection.
@@ -108,6 +141,6 @@ ls .codex/agents
 - **Accidental drift:** diff the workspace skill against canonical:
 
 ```bash
-diff -ruN /path/to/canonical/.agents/skills/swe-workflow \
+diff -ruN /path/to/swe-workflow/skills/swe-workflow \
           /path/to/workspace/.agents/skills/swe-workflow
 ```

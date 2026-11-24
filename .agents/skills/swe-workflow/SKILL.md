@@ -168,7 +168,7 @@ Before writing any code or tests, discover the local repository's invariants:
 *(Enforces Principle 3: Surgical Changes)*
 
 1. **Implement Minimal Fix**:
-   - Edit only the files approved in `plan.md`.
+   - Follow `plan.md`; obvious, necessary changes discovered during implementation may extend it. Keep them minimal and honestly document what changed beyond the initial plan, why, and verification evidence in the PR. Ask the human about ambiguous or unrelated scope.
    - Implement the direct fix without adding unrequested "configurable options" or premature helper abstractions.
 2. **Execute the GREEN Gate**:
    - Run the reproduction test: `<test> tests/repro_<issue>.test.ts`
