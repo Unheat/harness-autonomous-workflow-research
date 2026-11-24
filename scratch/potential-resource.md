@@ -60,4 +60,56 @@ or the + optional a helper finetuned toward repo content small llm to help with 
       any notion of a worktree graph — those stay with our L0 design (storytold pattern) and stay
       unproven until we have the backtest eval.
 
+  - **Grok Bot (xAI, closed)** https://x.ai/bot + https://x.ai/bot/guides/grok-bot-for-engineering
+    - *not an outer layer for us*: a closed SaaS **fleet manager** ("team of AI bots") built on persistent
+      cloud computers and Cursor cloud agents. Each bot has its own folder, skills and memory; bots
+      coordinate in group threads and can spawn / monitor / queue / interrupt cloud agents.
+    - the parts worth borrowing as product research:
+      - *manager bot + specialist bots + ops bot* org pattern (one bot per domain, an ops bot that runs
+        onboarding/postmortems) maps onto our L0/L1 roster and a "memory curator" role.
+      - *routines / triggers* (nightly audits, P0 polling) with real human hand-off = a good model for our
+        trigger adapter, but we keep overlap-skip and a token budget.
+      - *proof attached to the PR* (transcript, screenshots, before/after) is the right evidence UX; we
+        formalize it as evidence records, not attachments.
+    - what it does NOT give us: repository-owned acceptance policy, deterministic planning, merge-order
+      reasoning, judge calibration, cross-harness ownership, or portability. Its "auto-merge when review
+      confidence is high and blast radius is low" is model judgment — exactly the irreversible step we
+      reserve for a human. Do not copy that part.
+
+  - **Google Antigravity 2.0** https://antigravity.google/ (closest shipped thing to our outer layer)
+    - *solves the execution choreography, not the governance/correctness layer.* Four modes:
+      - `/swarm` https://antigravity.google/docs/swarm — coordinator splits work into named workers per
+        file/package, adds a `@verifier` per 2–4 workers and a `@monitor`; each worker gets a public brief
+        ("what you own / must not touch / done"); everyone talks on one append-only board with `@mentions`;
+        idle members sleep at zero token cost; optional per-worker worktrees; model pinning per member.
+      - `/teamwork` https://antigravity.google/docs/teamwork — Phase 1 scoping interview → reviewable prompt
+        artifact → human approval; Phase 2 `Sentinel` + `Project Orchestrator` (fresh successor per
+        milestone), `Explorers`, `Workers` with **exclusive file ownership**, and `Critic` / `Challenger` /
+        `Auditor` / `Success Auditor` gates. Integrity modes `development` / `demo` / `benchmark`.
+      - *subagents* — `invoke_subagent` with `inherit` / `branch` (isolated worktree) / `share`, async
+        background, clean context, message/interrupt, idle re-awaken.
+      - *substrate* — projects (settings/resources/permissions), native git worktrees, scheduled tasks,
+        hooks, MCP, headless CLI `agy -p --output-format json|stream-json`, Python SDK.
+    - **the actionable hub finding**: Antigravity natively reads `AGENTS.md`, `.agents/skills/`,
+      `.agents/agents/`, `.agents/mcp_config.json`, `.agents/hooks.json` — almost our exact layout. Add it
+      as a **projection consumer** (agents/mcp/hooks are dialect projections; skills are native), not a new
+      custom adapter. Details + exact frontmatter fields in
+      `scratch/outer-layer-vs-mausbot-grokbot-antigravity.md` §7.
+    - what it does NOT give us: acceptance-as-code (no anchored F2P, no evidence hashes, no staleness),
+      provable verifier independence (no non-mutation witness, no held-out cases), deterministic
+      merge-order into *our* `main`, immutable constitution/rubrics, judge calibration/backtest, or
+      cross-harness ownership. It works in `~/teamwork_projects/{PROJECT}`, not as a merge DAG into the
+      real repo.
+    - verdict: use it as an execution engine / reference implementation and as a harness in our matrix;
+      keep our pinned goal contract + evidence gates as the source of truth. Do not make it the outer layer.
+
+## research snapshot (2026-11-23)
+
+- Full comparison, capability matrix, "what they do better", "what is still missing", recommended outer
+  architecture and the Antigravity harness mapping:
+  `scratch/outer-layer-vs-mausbot-grokbot-antigravity.md`.
+- One-line conclusion: **Antigravity solves the shape, MausBot solves the transport/approval, Grok Bot
+  solves the fleet ops — none solves acceptance-as-code, evidence integrity, judge calibration, or
+  cross-harness ownership. That intersection is our outer layer.**
+
 

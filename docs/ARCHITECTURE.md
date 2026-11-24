@@ -129,6 +129,9 @@ gap is only a registration gap.
 
 Detailed pi trust semantics: [`docs/solutions/pi-like-harness-projection.md`](solutions/pi-like-harness-projection.md).
 
+Primitive taxonomy and industry naming (skill / subagent / hook / MCP / plugin / Code Mode, plus the protocol
+family MCP–ACP–A2A–AG-UI): [`docs/references/harness-primitives.md`](references/harness-primitives.md).
+
 ---
 
 ## 4. Multi-Layer Workflow Integration

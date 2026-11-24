@@ -59,6 +59,22 @@ The developer of this project is a beginner learning full-stack, web extension, 
   When adding a harness, the question is always "does it read the hub, or does it need a generated projection?" —
   and for mutations, "does every projection get refreshed from the same single write?"
 
+- **OUTER LOOP — the core product; the resource layer only supports it**:
+  The thing this repo builds is the **outer loop** (`orchestrate <goal>`): observe the repo, find gaps against the
+  goal, decompose into a dependency-ordered task graph, allocate lanes/worktrees, dispatch workers, gate each
+  result, fan in and merge in a defined order, update memory, then re-assess. The **inner loop** is one worker
+  run in one lane (repro → plan → build → verify). Helpers are read-only leaves. Vocabulary is fixed in
+  `specs/008-declarative-swe-workflow/spec.md`; the L0/L1/L2 mechanics are in
+  `docs/references/universal-adaptive-workflow-architecture.md`.
+  The **resource layer** — skills, MCPs, hooks, subagents, the 3-tier catalog, projections, token shielding — is
+  supporting infrastructure. It exists so the loop runs cleanly, cheaply and comparably across harnesses. It is
+  **not** the core, and must not be optimized at the loop's expense.
+  Consequence: judge external tools, specs and designs by **outer-loop fit** — intake, gap discovery, task graph,
+  lane dispatch, evidence gates, merge/fan-in, memory, human authority, portability — not by how neatly they
+  organize skills or MCPs. The outer layer has no spec yet (`014` defers it; `008` fixes only the vocabulary);
+  when one is written it is the next free number under `specs/`, and
+  `scratch/outer-layer-vs-mausbot-grokbot-antigravity.md` §12 is the current capability baseline.
+
 - **Karpathy Principles (Core Invariants)**:
   - **Think Before Coding**: Don't assume. Don't hide confusion. Surface tradeoffs. If multiple interpretations exist, present them rather than picking silently. If something is unclear, stop, name what is confusing, and ask. Never use silent workarounds or fake solutions to look correct.
   - **Simplicity First**: Minimum code that solves the problem. Nothing speculative. No features beyond what was asked. No abstractions for single-use code. No unrequested "flexibility" or "configurability".
@@ -88,6 +104,10 @@ To keep context windows clean, detailed rules and specifications are loaded on d
   Read `specs/008-declarative-swe-workflow/plan.md` for the hands-on main-agent workflow redesign; Spec 007 covers resource management. Spec 006/Paperclip is historical. Distinguish proposed, prompt-defined, automated and live-verified capabilities.
 - **Unified 3-Tier Tooling Protocol**:
   All harness resources (`Skills`, `MCPs`, `Hooks`, `Plugins`, `Subagents`) follow the 3-Tier lifecycle (`Global`, `Project`, `Catalog`). Follow `harness-protocol` for installation, shadowing rules, and token-shielding protocols.
+- **Harness Primitives**:
+  `docs/references/harness-primitives.md` is the industry taxonomy — skill vs subagent vs hook vs MCP vs plugin vs
+  Code Mode, which layer enforces what, and the protocol family (MCP / ACP / A2A / AG-UI). Read it before adding a
+  new resource kind or arguing about where something belongs.
 - **Compound Memory**:
   Check `docs/solutions/` for known pitfalls before planning; record verified root-cause fixes upon resolving non-trivial bugs.
 
