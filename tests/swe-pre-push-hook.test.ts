@@ -6,6 +6,10 @@ import path from 'node:path';
 
 const HOOK = path.resolve(import.meta.dir, '../.agents/skills/swe-workflow/hooks/universal-pre-push.sh');
 
+// The skill is installed from the catalog (or a checkout), not vendored in this repo.
+// Skip the hook suite when it is not linked on this machine.
+const hookTest = fs.existsSync(HOOK) ? test : test.skip;
+
 function makeRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swe-hook-'));
   const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, stdio: 'pipe' });
@@ -39,7 +43,7 @@ function runHook(dir: string) {
 }
 
 describe('swe-workflow pre-push hook: secret scan', () => {
-  test('placeholder keys in template files do not block the push', () => {
+  hookTest('placeholder keys in template files do not block the push', () => {
     const dir = makeRepo();
     try {
       writeAndCommit(dir, {
@@ -57,7 +61,7 @@ describe('swe-workflow pre-push hook: secret scan', () => {
     }
   });
 
-  test('the hook source itself does not trip its own scan', () => {
+  hookTest('the hook source itself does not trip its own scan', () => {
     const dir = makeRepo();
     try {
       // The gate scans its own tracked source; a token-shaped example in a comment
@@ -73,7 +77,7 @@ describe('swe-workflow pre-push hook: secret scan', () => {
     }
   });
 
-  test('a real key in tracked source still blocks the push', () => {
+  hookTest('a real key in tracked source still blocks the push', () => {
     const dir = makeRepo();
     try {
       writeAndCommit(dir, {

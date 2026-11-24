@@ -111,31 +111,33 @@ A disciplined, reproducible software engineering workflow for coding agents. It 
   - Hands off discovered policy paths directly to the judges so they evaluate compliance without burning tokens re-scanning the tree.
 - **Physical Pre-Push Safety Gate**: Optional native git `pre-push` hook that auto-detects the test runner and blocks pushes if tests fail.
 
-#### Standalone Installation Guide:
+#### Installation
 
-You can install `swe-workflow` into **any** existing repository or global skills library **without** installing Tool 1.
-
-##### Option A: As a Universal Skill (Recommended)
-Copy or clone the `swe-workflow` directory into your project's `.agents/skills/` (or global `~/.agents/skills/`):
+`swe-workflow` lives in its own repository — [Unheat/swe-workflow](https://github.com/Unheat/swe-workflow). This repo does not vendor a copy.
 
 ```bash
-# In your target repository:
-mkdir -p .agents/skills
-cp -r /path/to/harness-autonomous-workflow-research/.agents/skills/swe-workflow .agents/skills/
+# Any project, no Tool 1 required:
+curl -fsSL https://raw.githubusercontent.com/Unheat/swe-workflow/main/setup.sh | bash
 
-# Or via git sparse-checkout / copy from GitHub
+# Or via Vercel Skills CLI:
+npx skills add Unheat/swe-workflow --skill swe-workflow
 ```
 
-##### Option B: Via Vercel Skills CLI
+On a machine managed by Tool 1, install once into the catalog and link each workspace:
+
 ```bash
-npx skills add Unheat/harness-autonomous-workflow-research --skill swe-workflow
+git clone https://github.com/Unheat/swe-workflow.git ~/study/swe-workflow
+bash ~/study/swe-workflow/scripts/update-catalog.sh        # deploy clone + catalog links
+
+cd /path/to/workspace
+harness skill add swe-workflow
+bash .agents/skills/swe-workflow/setup.sh
 ```
 
-##### Option C: As a Claude Code Plugin
-`swe-workflow` is packaged with a valid `.claude-plugin/plugin.json`:
-```bash
-claude plugin install /path/to/.agents/skills/swe-workflow
-```
+Updates: push in the swe-workflow checkout, then re-run `scripts/update-catalog.sh`; every linked workspace follows. Full options: [swe-workflow install/update guide](https://github.com/Unheat/swe-workflow/blob/main/skills/swe-workflow/README.md).
+
+##### As a Claude Code Plugin
+The plugin manifest ships in that repo (`skills/swe-workflow/.claude-plugin/plugin.json`).
 
 #### Three Modes, One Contract:
 `swe-workflow` picks a reviewer dispatch path from the live runtime, not from the folders in the repo, and states it in its first update (`mode=registry|manual|inline`):

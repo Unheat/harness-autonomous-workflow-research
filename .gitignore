@@ -64,3 +64,8 @@ speckit-guide.md
 
 # Generated OpenCode MCP projection (harness heal rewrites it from .mcp.json)
 .opencode/opencode.json
+
+# Skill suite linked from the machine catalog (canonical repo: Unheat/swe-workflow)
+.agents/skills/swe-workflow
+.agents/skills/judge-plan
+.agents/skills/judge-pr
