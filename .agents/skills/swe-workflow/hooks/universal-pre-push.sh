@@ -64,9 +64,9 @@ if git grep -n "^<<<<<<< " -- ':!*.test.*' ':!*.json' ':!*.md' 2>/dev/null; then
 fi
 
 # 3. Secret Scanning Gate (Block exposed API keys, tokens, and private credentials)
-# Template files (*.example, *.sample, *.example.yml, ...) are committed documentation:
-# they intentionally hold placeholder values like
-# OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key-here, which are not secrets.
+# Template files (*.example, *.sample, *.example.yml, ...) are committed documentation
+# that intentionally hold placeholder credentials, so they are excluded from the scan.
+# Keep this comment free of token-shaped text: the gate scans its own source file.
 SECRET_MATCH=$(git grep -E -I -n "(sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{50,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|DSA|OPENSSH|PRIVATE) KEY-----)" -- \
   ':!*.test.*' ':!*.json' ':!*.md' ':!specs/*' ':!docs/*' ':!package-lock.json' \
   ':!*.example' ':!*.example.*' ':!*.sample' ':!*.sample.*' \

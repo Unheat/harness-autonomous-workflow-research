@@ -57,6 +57,22 @@ describe('swe-workflow pre-push hook: secret scan', () => {
     }
   });
 
+  test('the hook source itself does not trip its own scan', () => {
+    const dir = makeRepo();
+    try {
+      // The gate scans its own tracked source; a token-shaped example in a comment
+      // would block every push from the repo that ships the hook.
+      writeAndCommit(dir, {
+        '.agents/skills/swe-workflow/hooks/universal-pre-push.sh': fs.readFileSync(HOOK, 'utf8'),
+      });
+
+      const result = runHook(dir);
+      expect(result.status).toBe(0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('a real key in tracked source still blocks the push', () => {
     const dir = makeRepo();
     try {
